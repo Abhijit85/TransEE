@@ -1,0 +1,3 @@
+%pip install torch
+%pip install python-dotenv
+%pip install pandas

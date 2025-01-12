@@ -1,3 +1,15 @@
+import os
+import re
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import pandas as pd
+import numpy as np
+import math
+
+
+
 class TransEEnhanced(nn.Module):
     def __init__(self, num_entities, num_relations, embedding_dim, margin, distance_metric=2, # 1 for L1 and 2 for L2
                  gamma=10.0, phase_weight=1.0, modulus_weight=4.0, epsilon=1.0,reg_coeff=1e-4):

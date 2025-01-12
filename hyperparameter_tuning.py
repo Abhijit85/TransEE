@@ -1,25 +1,10 @@
-
-%pip install torch
-%pip install python-dotenv
-%pip install pandas
-###########################################
-
 from dotenv import load_dotenv
-import os
-import re
-import os
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import pandas as pd
-import numpy as np
-import math
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 import itertools
-from custom_dataset import data_loader
-from TransEEnhanced import model
-from training_utils import training
+from data_loader import custom_dataset
+from model import TransEEnhanced
+from traning import training
+
 
 # Load dataset using CustomDataset class
 data_path = '/content/sample_data'
