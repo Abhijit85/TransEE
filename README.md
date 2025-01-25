@@ -6,23 +6,33 @@ python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/Tran
 
 
 
-###########################################
+# Knowledge Graph Embedding Repository Structure
 
+This repository is designed for training and evaluating Knowledge Graph Embedding (KGE) models such as TransE, RotatE, and TransEEnhanced on datasets like FB15K.
+
+## Directory Structure
+
+```plaintext
 knowledge_graph_embedding/
-├── data/                  # Directory for dataset files
-│   ├── FB15K/             # Dataset folder (FB15K)
+├── data/                  # Directory for datasets
+│   ├── FB15K/             # Dataset folder (e.g., FB15K)
 │   │   ├── train.txt      # Training triples
 │   │   ├── valid.txt      # Validation triples
 │   │   ├── test.txt       # Testing triples
-│   │   ├── entities.dict  # Entity to ID mapping
-│   │   ├── relations.dict # Relation to ID mapping
-│   │   ├── regions.list   # (Optional) Region file for specific datasets
-├── dataloader.py          # Contains TrainDataset, TestDataset, etc.
-├── model.py               # Contains KGEModel and scoring functions
-├── run.py                 # Main script for training and evaluation
-├── utils.py               # Utility functions (e.g., categorize relations, filter triples)
+│   │   ├── entities.dict  # Entity-to-ID mapping
+│   │   ├── relations.dict # Relation-to-ID mapping
+├── output/                # Directory to store trained models and results
+│   ├── TransEEnhanced_FB15K/  # Model checkpoint for TransEEnhanced
+│   │   ├── config.json        # Saved configuration
+│   │   ├── checkpoint         # Model and optimizer state
+│   │   ├── entity_embedding.npy   # Saved entity embeddings
+│   │   ├── relation_embedding.npy # Saved relation embeddings
+├── dataloader.py          # Contains dataset classes (TrainDataset, TestDataset, etc.)
+├── model.py               # Implements KGEModel and scoring functions
+├── run.py                 # Main script for training, validation, and testing
+├── utils.py               # Utility functions (e.g., categorize relations, filter test triples)
+├── requirements.txt       # Python dependencies
 ├── README.md              # Project description and instructions
-#############################################
 
 
 
