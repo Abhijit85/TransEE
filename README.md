@@ -1,7 +1,8 @@
 # TransEE-Enhancing-Knowledge-Graph-Embedding-for-Complex-Relations
 
 
-
+# Testing
+python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/TransEEnhanced_FB15K --test_batch_size 16 --cuda
 
 
 
