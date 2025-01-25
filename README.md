@@ -5,7 +5,23 @@
 
 
 
+###########################################
 
+knowledge_graph_embedding/
+├── data/                  # Directory for dataset files
+│   ├── FB15K/             # Dataset folder (FB15K)
+│   │   ├── train.txt      # Training triples
+│   │   ├── valid.txt      # Validation triples
+│   │   ├── test.txt       # Testing triples
+│   │   ├── entities.dict  # Entity to ID mapping
+│   │   ├── relations.dict # Relation to ID mapping
+│   │   ├── regions.list   # (Optional) Region file for specific datasets
+├── dataloader.py          # Contains TrainDataset, TestDataset, etc.
+├── model.py               # Contains KGEModel and scoring functions
+├── run.py                 # Main script for training and evaluation
+├── utils.py               # Utility functions (e.g., categorize relations, filter triples)
+├── README.md              # Project description and instructions
+#############################################
 
 
 
