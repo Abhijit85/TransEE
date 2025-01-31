@@ -1,0 +1,93 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36" version="26.0.6">
+  <diagram name="Page-1" id="9bFnK59kecHNK887TFBv">
+    <mxGraphModel dx="1010" dy="565" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-1" value="&lt;b&gt;Input Triplet (h, r, t)&lt;/b&gt;" style="whiteSpace=wrap;strokeWidth=2;fontFamily=Lucida Console;glass=1;shadow=1;rounded=1;labelBackgroundColor=none;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;html=1;" parent="1" vertex="1">
+          <mxGeometry x="193" y="20" width="206" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-2" value="&lt;b&gt;Embedding Lookup (e&lt;sub&gt;h&lt;/sub&gt;, e&lt;sub&gt;r&lt;/sub&gt;, e&lt;sub&gt;t&lt;/sub&gt;)&lt;/b&gt;" style="whiteSpace=wrap;strokeWidth=2;rounded=1;glass=1;horizontal=1;labelBackgroundColor=none;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;html=1;" parent="1" vertex="1">
+          <mxGeometry x="166" y="147" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-3" value="&lt;b&gt;Phase Adjustment (cos(φ&lt;sub&gt;r&lt;/sub&gt;))&lt;/b&gt;" style="whiteSpace=wrap;strokeWidth=2;labelBackgroundColor=none;rounded=1;glass=1;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;html=1;" parent="1" vertex="1">
+          <mxGeometry x="20" y="297" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-4" value="Modulus Regularization" style="whiteSpace=wrap;strokeWidth=2;labelBackgroundColor=none;rounded=1;glass=1;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="330" y="309" width="225" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-5" value="&lt;b&gt;Transformation (e&lt;sub&gt;h&lt;/sub&gt; + e&lt;sub&gt;r&lt;/sub&gt; + cos(φ&lt;sub&gt;r&lt;/sub&gt;))&lt;/b&gt;" style="whiteSpace=wrap;strokeWidth=2;labelBackgroundColor=none;rounded=1;glass=1;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;html=1;" parent="1" vertex="1">
+          <mxGeometry x="166" y="448" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-6" value="Scoring Function (L2 Norm)" style="whiteSpace=wrap;strokeWidth=2;labelBackgroundColor=none;rounded=1;glass=1;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="169" y="598" width="255" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-7" value="Margin Loss" style="whiteSpace=wrap;strokeWidth=2;labelBackgroundColor=none;rounded=1;glass=1;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="225" y="725" width="142" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-8" value="Phase Regularization" style="whiteSpace=wrap;strokeWidth=2;labelBackgroundColor=none;rounded=1;glass=1;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="192" y="851" width="208" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-9" value="Output: Triplet Plausibility Score" style="whiteSpace=wrap;strokeWidth=2;labelBackgroundColor=none;rounded=1;glass=1;fillColor=#5D7F99;strokeColor=#D0CEE2;fontColor=#1A1A1A;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="166" y="978" width="260" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-10" value="&lt;h3&gt;Retrieve Embeddings&lt;/h3&gt;" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=-0.01;rounded=0;fontFamily=Lucida Console;flowAnimation=1;horizontal=1;html=1;labelBackgroundColor=none;fontColor=default;strokeColor=#736CA8;" parent="1" source="l_EtAG0b-5FAKBgQwEHq-1" target="l_EtAG0b-5FAKBgQwEHq-2" edge="1">
+          <mxGeometry x="-0.0137" y="64" relative="1" as="geometry">
+            <Array as="points" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-11" value="Compute Phase" style="curved=1;startArrow=none;endArrow=block;exitX=0.21;exitY=0.99;entryX=0.5;entryY=0;rounded=0;labelBackgroundColor=none;fontColor=default;flowAnimation=1;strokeColor=#736CA8;fontStyle=1" parent="1" source="l_EtAG0b-5FAKBgQwEHq-2" target="l_EtAG0b-5FAKBgQwEHq-3" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="261" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-12" value="&lt;b&gt;Apply Regularization&lt;/b&gt;" style="curved=1;startArrow=none;endArrow=block;exitX=0.79;exitY=0.99;entryX=0.5;entryY=0;rounded=0;labelBackgroundColor=none;fontColor=default;flowAnimation=1;strokeColor=#736CA8;html=1;" parent="1" source="l_EtAG0b-5FAKBgQwEHq-2" target="l_EtAG0b-5FAKBgQwEHq-4" edge="1">
+          <mxGeometry x="0.0009" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="442" y="261" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-13" value="Combine Embeddings" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.21;entryY=-0.01;rounded=0;labelBackgroundColor=none;fontColor=default;flowAnimation=1;strokeColor=#736CA8;fontStyle=1" parent="1" source="l_EtAG0b-5FAKBgQwEHq-3" target="l_EtAG0b-5FAKBgQwEHq-5" edge="1">
+          <mxGeometry x="1" y="87" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="411" />
+            </Array>
+            <mxPoint x="38" y="39" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-14" value="" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.79;entryY=-0.01;rounded=0;labelBackgroundColor=none;fontColor=default;flowAnimation=1;strokeColor=#736CA8;" parent="1" source="l_EtAG0b-5FAKBgQwEHq-4" target="l_EtAG0b-5FAKBgQwEHq-5" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="442" y="411" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-15" value="Compute Distance" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=0.99;entryX=0.5;entryY=0;rounded=0;labelBackgroundColor=none;fontColor=default;flowAnimation=1;strokeColor=#736CA8;fontStyle=1" parent="1" source="l_EtAG0b-5FAKBgQwEHq-5" target="l_EtAG0b-5FAKBgQwEHq-6" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-16" value="Loss Calculation" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=-0.01;rounded=0;labelBackgroundColor=none;fontColor=default;flowAnimation=1;strokeColor=#736CA8;fontStyle=1" parent="1" source="l_EtAG0b-5FAKBgQwEHq-6" target="l_EtAG0b-5FAKBgQwEHq-7" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-17" value="Refine Embeddings" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=0.99;entryX=0.5;entryY=0;rounded=0;labelBackgroundColor=none;fontColor=default;flowAnimation=1;strokeColor=#736CA8;fontStyle=1" parent="1" source="l_EtAG0b-5FAKBgQwEHq-7" target="l_EtAG0b-5FAKBgQwEHq-8" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l_EtAG0b-5FAKBgQwEHq-18" value="Generate Output" style="curved=1;startArrow=none;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=-0.01;rounded=0;labelBackgroundColor=none;fontColor=default;flowAnimation=1;strokeColor=#736CA8;fontStyle=1" parent="1" source="l_EtAG0b-5FAKBgQwEHq-8" target="l_EtAG0b-5FAKBgQwEHq-9" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
