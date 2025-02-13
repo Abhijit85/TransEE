@@ -4,9 +4,9 @@
 python -u -c 'import torch; print(torch.__version__)'
 
 # Paths
-CODE_PATH='/home/abhijit_chak/FrediRAG/TransEE/TransEE-Enhancing-Knowledge-Graph-Embedding-for-Complex-Relations/Code'
-DATA_PATH='/home/abhijit_chak/FrediRAG/TransEE/TransEE-Enhancing-Knowledge-Graph-Embedding-for-Complex-Relations/Data'
-SAVE_PATH='/home/abhijit_chak/FrediRAG/TransEE/TransEE-Enhancing-Knowledge-Graph-Embedding-for-Complex-Relations/models'
+CODE_PATH='/home/USERNAM/TransEE/Code'
+DATA_PATH='/home/USERNAM/TransEE/data'
+SAVE_PATH='/home/USERNAM/TransEE/models'
 
 #The first four parameters must be provided
 MODE=$1

@@ -255,10 +255,15 @@ class KGEModel(nn.Module):
         return score
     
     def TransEEnhanced(self, head, relation, tail, mode):
+
         # Split the embeddings into modulus and phase
         head_modulus, head_phase = torch.chunk(head, 2, dim=2)
         rel_modulus, rel_phase = torch.chunk(relation, 2, dim=2)
         tail_modulus, tail_phase = torch.chunk(tail, 2, dim=2)
+
+        head_phase = torch.remainder(head_phase, 2 * np.pi)
+        rel_phase = torch.remainder(rel_phase, 2 * np.pi)
+        tail_phase = torch.remainder(tail_phase, 2 * np.pi)
 
         # Adjust relation modulus with bias
         bias_relation = torch.clamp(rel_modulus, max=1)
@@ -268,27 +273,27 @@ class KGEModel(nn.Module):
 
         # Handle different modes
         if mode == 'head-batch':
-            phase_score = torch.abs(torch.sin((tail_phase - rel_phase - head_phase) / 2)).sum(dim=2) * 0.5
+            phase_score = torch.abs(torch.sin((tail_phase - rel_phase - head_phase) / 2)).sum(dim=2) * 1.5
             modulus_score = torch.norm(
                 tail_modulus * (1 - bias_relation) - head_modulus * (rel_modulus + bias_relation),
                 p=2,
                 dim=2
-            ) * 0.5
+            ) * 3.5
         elif mode == 'tail-batch':
-            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2) * 0.5
+            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2) * 1.5
             modulus_score = torch.norm(
                 head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation),
                 p=2,
                 dim=2
-            ) * 0.5
+            ) * 3.5
         else:
             # Default mode
-            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2) * 0.5
+            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2) * 1.5
             modulus_score = torch.norm(
                 head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation),
                 p=2,
                 dim=2
-            ) * 0.5
+            ) * 3.5
 
         # Final score calculation
         return self.gamma.item() - (modulus_score + phase_score)
