@@ -4,22 +4,22 @@
 This is a PyTorch implementation of TransEE for learning embeddings in knowledge graphs (KGE). TransEE introduces enhancements that improve handling of complex relations (one-to-many, many-to-one, many-to-many) in knowledge graphs. The implementation is optimized for fast training on large-scale knowledge graphs and can achieve state-of-the-art performance on datasets like FB15K, WN18, and YAGO3-10.
 
 ## Implemented Features
--:Supports diverse relational patterns
--:Enhanced Relation Expressiveness
--:Improved Scoring Mechanism
--:Efficient Training & Inference
+- ✔ Supports diverse relational patterns
+- ✔ Enhanced Relation Expressiveness
+- ✔ Improved Scoring Mechanism
+- ✔ Efficient Training & Inference
 
 
 ## Evaluation Metrics
 We evaluate TransEE using the following standard KGE metrics:
--Mean Rank (MR): Measures the average rank of correct entities
--Hits@10 (Filtered): Percentage of test triples where the correct entity is ranked in the top 10 after filtering out corrupted triples
+- Mean Rank (MR): Measures the average rank of correct entities
+- Hits@10 (Filtered): Percentage of test triples where the correct entity is ranked in the top 10 after filtering out corrupted triples
 
 
 
 ## Loss Function:
--Uniform Negative Sampling
--Self-Adversarial Negative Sampling
+- Uniform Negative Sampling
+- Self-Adversarial Negative Sampling
 
 ## Supported Datasets
 
@@ -76,27 +76,7 @@ knowledge_graph_embedding/
 
 ## Citation
 
-add citations for RotateE , thank them
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+add citations for RotateE
 
 
 
