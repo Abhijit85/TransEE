@@ -31,11 +31,15 @@ Knowledge Graph Data Format:
 
 The dataset consists of the following files:
 
-entities.dict – A dictionary mapping entities to unique IDs
-relations.dict – A dictionary mapping relations to unique IDs
-train.txt – The dataset used to train the KGE model
-valid.txt – The validation dataset 
-test.txt – The dataset used to evaluate the KGE model
+- entities.dict – A dictionary mapping entities to unique IDs
+
+- relations.dict – A dictionary mapping relations to unique IDs
+
+- train.txt – The dataset used to train the KGE model
+
+- valid.txt – The validation dataset 
+
+- test.txt – The dataset used to evaluate the KGE model
 
 
 # Testing
