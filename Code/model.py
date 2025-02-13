@@ -65,7 +65,7 @@ class KGEModel(nn.Module):
             self.modulus = nn.Parameter(torch.Tensor([[0.5 * self.embedding_range.item()]]))
         
         #Do not forget to modify this line when you add a new model in the "forward" function
-        if model_name not in ['TransE', 'DistMult', 'ComplEx', 'RotatE', 'pRotatE','TransEEnhanced']:
+        if model_name not in ['TransE', 'DistMult', 'ComplEx', 'RotatE', 'pRotatE','RelatE']:
             raise ValueError('model %s not supported' % model_name)
             
         if model_name == 'RotatE' and (not double_entity_embedding or double_relation_embedding):
@@ -159,7 +159,7 @@ class KGEModel(nn.Module):
             'ComplEx': self.ComplEx,
             'RotatE': self.RotatE,
             'pRotatE': self.pRotatE,
-            'TransEEnhanced': self.TransEEnhanced
+            'RelatE': self.RelatE
         }
         
         if self.model_name in model_func:
@@ -254,7 +254,7 @@ class KGEModel(nn.Module):
         score = self.gamma.item() - score.sum(dim = 2) * self.modulus
         return score
     
-    def TransEEnhanced(self, head, relation, tail, mode):
+    def RelatE(self, head, relation, tail, mode):
 
         # Split the embeddings into modulus and phase
         head_modulus, head_phase = torch.chunk(head, 2, dim=2)

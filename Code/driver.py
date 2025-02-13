@@ -48,7 +48,7 @@ def parse_args(args=None):
     parser.add_argument('-adv', '--negative_adversarial_sampling', action='store_true')
     parser.add_argument('-a', '--adversarial_temperature', default=1.0, type=float)
     parser.add_argument('-b', '--batch_size', default=1024, type=int)
-    parser.add_argument('-r', '--regularization', default=0.00001, type=float) # change it to 0.0 when not running for wn18rr dataset for TransEEnhanced
+    parser.add_argument('-r', '--regularization', default=0.00001, type=float) # change it to 0.0 when not running for wn18rr dataset for RelatE
     parser.add_argument('--test_batch_size', default=4, type=int, help='valid/test batch size')
     parser.add_argument('--uni_weight', action='store_true', 
                         help='Otherwise use subsampling weighting like in word2vec')
