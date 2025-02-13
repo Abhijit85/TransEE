@@ -57,9 +57,9 @@ python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/Tran
 ## Results of RelatE model
 | Dataset | FB15k | FB15k-237 | WN18 | WN18RR | YAGO3-10 |
 |-------------|-------------|-------------|-------------|-------------|-------------|
-| MRR | .685 | .346| .718 |.245 | 0.403 |
+| MRR | .685 | .346| .718 |.245 | .403 |
 | MR | 51.9 | 193 | 1626.6 | 1943 | 886 |
-| HITS@10 | .845 | .544 | .955 | .551 | 0.59 |
+| HITS@10 | .845 | .544 | .955 | .551 | .59 |
 
 ## Knowledge Graph Embedding Repository Structure
 
