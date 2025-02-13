@@ -42,13 +42,16 @@ The dataset consists of the following files:
 - test.txt – The dataset used to evaluate the KGE model
 
 
-# Testing
+## Testing
 python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/TransEEnhanced_FB15K --test_batch_size 16 --cuda
 
-## Results of TransEE model
-add results with all datasets
+## Hyperparameters
+add table
 
-# Knowledge Graph Embedding Repository Structure
+## Results of TransEE model
+add table results with all datasets
+
+## Knowledge Graph Embedding Repository Structure
 
 This repository is designed for training and evaluating Knowledge Graph Embedding (KGE) models such as TransE, RotatE, and TransEEnhanced on datasets like FB15K.
 
