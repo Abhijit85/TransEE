@@ -46,10 +46,20 @@ The dataset consists of the following files:
 python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/TransEEnhanced_FB15K --test_batch_size 16 --cuda
 
 ## Hyperparameters
-add table
+| Dataset | negative sample size n  | hidden_dim d | gamma g | -a adversial temp | batch_size | mw | pw | learning rate | steps |
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| FB15k | 256 | 1000 | 12 | 1 | 1024 | 4 | 1.5 | 0.0001 | 100k |
+| WN18  | 512 | 250 | 6 | 1 | 1024 | 3.5 | 1.5 | 0.0005 | 80k |
+| FB15k-237  | 256 | 1000 | 12 | 1 | 1024 | 3.5 | 1 | 0.00005 | 120k |
+| WN18RR  | 512 | 250 | 4 | 1 | 512 | 3.5 | 1.5 | 0.0005 | 100k |
+| YAGO3-10   | 512 | 2500 | 6 | 2 | 1024 | 5.5 | 2.5 | 0.0005 | 80k |
 
-## Results of TransEE model
-add table results with all datasets
+## Results of RelatE model
+| Dataset | FB15k | FB15k-237 | WN18 | WN18RR | YAGO3-10 
+|-------------|-------------|-------------|-------------|-------------|
+| MRR | .685 | .346| .718 |.245 | 0.403 |
+| MR | 51.9 | 193 | 1626.6 | 1943 | 886 |
+| HITS@10 | .845 | .544 | .955 | .551 | 0.59 |
 
 ## Knowledge Graph Embedding Repository Structure
 
