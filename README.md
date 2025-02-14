@@ -45,7 +45,7 @@ The dataset consists of the following files:
 python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/TransEEnhanced_FB15K --test_batch_size 16 --cuda
 ```
 ### Hyperparameters
-| Dataset | negative sample size n  | hidden_dim d | gamma g | -a adversial temp | batch_size | mw | pw | learning rate | steps |
+| Dataset | negative sample size n  | hidden_dim d | margin g | -a adversial temp | batch_size | mw | pw | learning rate | steps |
 |-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
 | FB15k | 256 | 1000 | 12 | 1 | 1024 | 4 | 1.5 | 0.0001 | 100k |
 | WN18  | 512 | 250 | 6 | 1 | 1024 | 3.5 | 1.5 | 0.0005 | 80k |
