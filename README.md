@@ -20,8 +20,12 @@ We evaluate RelatE using the following standard KGE metrics:
 - Self-Adversarial Negative Sampling
 
 ### Supported Datasets
-
-add table with datasets - entities, relations...
+| Dataset   | #R   | #E    | # (Train / Valid / Test)           |
+|-----------|------|-------|------------------------------------|
+| FB15K     | 1,345|14,951 | 483,142 / 50,000 / 59,071         |
+| FB15K-237 | 237  |14,541 | 272,115 / 17,535 / 20,466         |
+| WN18      | 18   |40,943 | 141,442 / 5,000 / 5,000           |
+| WN18RR    | 11   |40,943 | 86,835 / 3,034 / 3,134            |
 
 ### Usage
 
