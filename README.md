@@ -11,11 +11,9 @@ This is a PyTorch implementation of RelatE for learning embeddings in knowledge 
 
 
 ## Evaluation Metrics
-We evaluate TransEE using the following standard KGE metrics:
-- Mean Rank (MR): Measures the average rank of correct entities
-- Hits@10 (Filtered): Percentage of test triples where the correct entity is ranked in the top 10 after filtering out corrupted triples
-
-
+We evaluate RelatE using the following standard KGE metrics:
+- Mean Rank (MR): Measures the average rank of correct entities.
+- Hits@10 (Filtered): Percentage of test triples where the correct entity is ranked in the top 10 after filtering out corrupted triples.
 
 ## Loss Function:
 - Uniform Negative Sampling
@@ -62,9 +60,9 @@ python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/Tran
 
 ## Knowledge Graph Embedding Repository Structure
 
-This repository is designed for training and evaluating Knowledge Graph Embedding (KGE) models such as TransE, RotatE, and TransEEnhanced on datasets like FB15K.
+This repository is designed for training and evaluating RelatE on several benchmark datasets.
 
-## Directory Structure
+### Directory Structure
 
 ```plaintext
 knowledge_graph_embedding/
@@ -89,13 +87,6 @@ knowledge_graph_embedding/
 ├── README.md              # Project description and instructions
 
 ```
-
-## Citation
-
-add citations for RotateE
-
-
-
 
 ## Acknowledgement
 We refer to the code of [RotatE](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding). Thanks for their contributions.
