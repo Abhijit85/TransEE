@@ -52,8 +52,8 @@ To change the modulus and phase weights, locate the model.py file in the Code fo
 python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/RelatE_FB15K --test_batch_size 16 --cuda
 ```
 ### Hyperparameters
-| Dataset | negative sample size n  | hidden_dim d | margin g | -a adversial temp | batch_size | mw | pw | learning rate | steps |regularization
-|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| Dataset | Negative sample size n  | Hidden_dim d | Margin g | -a Adversial Temp | Batch_Size | mw | pw | Learning rate | Steps |Regularization|
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|--------|
 | FB15k | 256 | 1000 | 12 | 1 | 1024 | 4 | 1.5 | 0.0001 | 100k |0|
 | WN18  | 512 | 250 | 6 | 1 | 1024 | 3.5 | 1.5 | 0.0005 | 80k |0.00001|
 | FB15k-237  | 256 | 1000 | 12 | 1 | 1024 | 3.5 | 1 | 0.00005 | 120k |0|
