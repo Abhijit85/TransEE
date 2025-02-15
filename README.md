@@ -42,8 +42,11 @@ The dataset consists of the following files:
 - valid.txt – The validation dataset 
 
 - test.txt – The dataset used to evaluate the KGE model
-
-
+### Testing
+```plaintext
+bash run.sh train RelatE dataset_name GPU_device_number save_id batch_size negative_sample_size hidden_dim gamma adversarial_temperature learning_rate  number_of_steps 16
+```
+To change the modulus and phase weights, locate the model.py file in the Code folder. Change the multiplying factors associated with modulus_score and phase_score.
 ### Testing
 ```plaintext
 python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/RelatE_FB15K --test_batch_size 16 --cuda
