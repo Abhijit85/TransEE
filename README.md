@@ -1,5 +1,5 @@
 # RelatE: Relational Embeddings through Modulus-Phase Decomposition
-RelatErelationhandlingpng.png
+![Alt text](RelatErelationhandlingpng.png)
 ### Introduction
 This is a PyTorch implementation of RelatE for learning embeddings in knowledge graphs (KGE). RelatE introduces enhancements that improve handling of complex relations (one-to-many, many-to-one, many-to-many) in knowledge graphs. The implementation is optimized for fast training on large-scale knowledge graphs and can achieve state-of-the-art performance on datasets like FB15K, WN18, and YAGO3-10.
 
