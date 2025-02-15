@@ -4,7 +4,7 @@
 This is a PyTorch implementation of RelatE for learning embeddings in knowledge graphs (KGE). RelatE introduces enhancements that improve handling of complex relations (one-to-many, many-to-one, many-to-many) in knowledge graphs. The implementation is optimized for fast training on large-scale knowledge graphs and can achieve state-of-the-art performance on datasets like FB15K, WN18, and YAGO3-10.
 
 ### Implemented Features
-- ✔ Supports diverse relational patterns
+- ✔ Supports Diverse Relational Patterns
 - ✔ Enhanced Relation Expressiveness
 - ✔ Improved Scoring Mechanism
 - ✔ Efficient Training & Inference
@@ -65,11 +65,6 @@ python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/Rela
 |-------------|-------------|-------------|-------------|-------------|-------------|
 | MR | 51.9 | 193 | 162.6 | 1943 | 886 |
 | HITS@10 | .845 | .544 | .955 | .551 | .59 |
-
-### Knowledge Graph Embedding Repository Structure
-
-This repository is designed for training and evaluating RelatE on several benchmark datasets.
-
 
 ## Acknowledgement
 We refer to the code of [RotatE](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding). Thanks for their contributions.
