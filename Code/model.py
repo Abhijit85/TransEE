@@ -273,27 +273,27 @@ class KGEModel(nn.Module):
 
         # Handle different modes
         if mode == 'head-batch':
-            phase_score = torch.abs(torch.sin((tail_phase - rel_phase - head_phase) / 2)).sum(dim=2) * 1.5
+            phase_score = torch.abs(torch.sin((tail_phase - rel_phase - head_phase) / 2)).sum(dim=2) * 0.5
             modulus_score = torch.norm(
                 tail_modulus * (1 - bias_relation) - head_modulus * (rel_modulus + bias_relation),
                 p=2,
                 dim=2
-            ) * 3.5
+            ) * 4
         elif mode == 'tail-batch':
-            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2) * 1.5
+            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2) * 0.5
             modulus_score = torch.norm(
                 head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation),
                 p=2,
                 dim=2
-            ) * 3.5
+            ) * 4
         else:
             # Default mode
-            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2) * 1.5
+            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2) * 0.5
             modulus_score = torch.norm(
                 head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation),
                 p=2,
                 dim=2
-            ) * 3.5
+            ) * 4
 
         # Final score calculation
         return self.gamma.item() - (modulus_score + phase_score)

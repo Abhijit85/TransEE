@@ -150,6 +150,19 @@ def set_logger(args):
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
 
+# Function to add reciprocal triples
+
+def add_reciprocal_triples(triples, nrelation):
+    '''
+    Function  to add reciprocal triples
+    This function takes a list of triples and the number of relations
+    It creates reciprocal triples by swapping the head and tail entities
+    '''
+    reciprocal_triples = []
+    for h, r, t in triples:
+        reciprocal_triples.append((t, r + nrelation, h))
+    return triples + reciprocal_triples
+
 def log_metrics(mode, step, metrics):
     '''
     Print the evaluation logs
@@ -201,19 +214,31 @@ def main(args):
     nrelation = len(relation2id)
     
     args.nentity = nentity
-    args.nrelation = nrelation
+    # args.nrelation = nrelation
+    # Double relation count for reciprocal training
+    args.nrelation = nrelation * 2
     
     logging.info('Model: %s' % args.model)
     logging.info('Data Path: %s' % args.data_path)
     logging.info('#entity: %d' % nentity)
     logging.info('#relation: %d' % nrelation)
     
+    # train_triples = read_triple(os.path.join(args.data_path, 'train.txt'), entity2id, relation2id)
+    # logging.info('#train: %d' % len(train_triples))
+    # valid_triples = read_triple(os.path.join(args.data_path, 'valid.txt'), entity2id, relation2id)
+    # logging.info('#valid: %d' % len(valid_triples))
+    # test_triples = read_triple(os.path.join(args.data_path, 'test.txt'), entity2id, relation2id)
+    # logging.info('#test: %d' % len(test_triples))
+
+     # Reading triples
     train_triples = read_triple(os.path.join(args.data_path, 'train.txt'), entity2id, relation2id)
-    logging.info('#train: %d' % len(train_triples))
     valid_triples = read_triple(os.path.join(args.data_path, 'valid.txt'), entity2id, relation2id)
-    logging.info('#valid: %d' % len(valid_triples))
-    test_triples = read_triple(os.path.join(args.data_path, 'test.txt'), entity2id, relation2id)
-    logging.info('#test: %d' % len(test_triples))
+    test_triples  = read_triple(os.path.join(args.data_path, 'test.txt'), entity2id, relation2id)
+
+    # Enable reciprocal training
+    train_triples = add_reciprocal_triples(train_triples, nrelation)
+    valid_triples = add_reciprocal_triples(valid_triples, nrelation)
+    test_triples  = add_reciprocal_triples(test_triples, nrelation)
     
     #All true triples
     all_true_triples = train_triples + valid_triples + test_triples
@@ -221,7 +246,8 @@ def main(args):
     kge_model = KGEModel(
         model_name=args.model,
         nentity=nentity,
-        nrelation=nrelation,
+        # nrelation=nrelation,
+        nrelation=args.nrelation,
         hidden_dim=args.hidden_dim,
         gamma=args.gamma,
         double_entity_embedding=args.double_entity_embedding,
