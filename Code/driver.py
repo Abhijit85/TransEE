@@ -48,7 +48,7 @@ def parse_args(args=None):
     parser.add_argument('-adv', '--negative_adversarial_sampling', action='store_true')
     parser.add_argument('-a', '--adversarial_temperature', default=1.0, type=float)
     parser.add_argument('-b', '--batch_size', default=1024, type=int)
-    parser.add_argument('-r', '--regularization', default=0.00001, type=float) # change it to 0.0 when not running for wn18rr dataset for RelatE
+    parser.add_argument('-r', '--regularization', default=0.00005, type=float) # change it to 5e-5 for FB15k237,YAGO310 and 1e-5 for WNR18RR
     parser.add_argument('--test_batch_size', default=4, type=int, help='valid/test batch size')
     parser.add_argument('--uni_weight', action='store_true', 
                         help='Otherwise use subsampling weighting like in word2vec')
@@ -61,12 +61,25 @@ def parse_args(args=None):
     parser.add_argument('--warm_up_steps', default=None, type=int)
     
     parser.add_argument('--save_checkpoint_steps', default=10000, type=int)
-    parser.add_argument('--valid_steps', default=10000, type=int)
+    parser.add_argument('--valid_steps', default=5000, type=int)
     parser.add_argument('--log_steps', default=100, type=int, help='train log every xx steps')
     parser.add_argument('--test_log_steps', default=1000, type=int, help='valid/test log every xx steps')
     
     parser.add_argument('--nentity', type=int, default=0, help='DO NOT MANUALLY SET')
     parser.add_argument('--nrelation', type=int, default=0, help='DO NOT MANUALLY SET')
+
+
+    parser.add_argument('-eras','--use_eras', action='store_true', help='Enable ERAS for RelatE')
+    parser.add_argument('--k_prototypes', default=4, type=int, help='Number of ERAS prototypes')
+
+
+    # Type constraints
+    parser.add_argument('--type_map_path', type=str, default=None, help='Path to entity-type map JSON file')
+    parser.add_argument('--type_lambda', type=float, default=1.0,
+                    help='Scaling factor for type bias injection (default 1.0)')
+
+
+
     
     return parser.parse_args(args)
 
@@ -150,6 +163,23 @@ def set_logger(args):
     console.setFormatter(formatter)
     logging.getLogger('').addHandler(console)
 
+# Function to adjust learning rate
+
+def adjust_learning_rate(optimizer, step, max_steps, initial_lr, final_lr):
+    """
+    Linearly decays learning rate from initial_lr to final_lr based on current training step.
+    """
+    # progress = step / max_steps
+    # new_lr = initial_lr - (initial_lr - final_lr) * progress
+    # new_lr = max(new_lr, final_lr)  # Clamp to final_lr if needed
+
+    # Cosine decay, polynomial decay, or simple linear decay (easy one here)
+    decay_ratio = step / max_steps
+    new_lr = initial_lr * (1.0 - decay_ratio) + final_lr * decay_ratio
+
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = new_lr
+
 # Function to add reciprocal triples
 
 def add_reciprocal_triples(triples, nrelation):
@@ -230,7 +260,7 @@ def main(args):
     # test_triples = read_triple(os.path.join(args.data_path, 'test.txt'), entity2id, relation2id)
     # logging.info('#test: %d' % len(test_triples))
 
-     # Reading triples
+    #  Reading triples
     train_triples = read_triple(os.path.join(args.data_path, 'train.txt'), entity2id, relation2id)
     valid_triples = read_triple(os.path.join(args.data_path, 'valid.txt'), entity2id, relation2id)
     test_triples  = read_triple(os.path.join(args.data_path, 'test.txt'), entity2id, relation2id)
@@ -251,7 +281,13 @@ def main(args):
         hidden_dim=args.hidden_dim,
         gamma=args.gamma,
         double_entity_embedding=args.double_entity_embedding,
-        double_relation_embedding=args.double_relation_embedding
+        double_relation_embedding=args.double_relation_embedding,
+        #ERAS variant
+        use_eras=args.use_eras,
+        k_prototypes=args.k_prototypes,
+        # Type constraints
+        type_map_path=args.type_map_path,
+        entity2id=entity2id
     )
     
     logging.info('Model Parameter Configuration:')
@@ -285,8 +321,14 @@ def main(args):
         current_learning_rate = args.learning_rate
         optimizer = torch.optim.Adam(
             filter(lambda p: p.requires_grad, kge_model.parameters()), 
-            lr=current_learning_rate
+            lr=current_learning_rate,weight_decay=0.000001
         )
+
+        # optimizer = torch.optim.AdamW(
+        #     filter(lambda p: p.requires_grad, kge_model.parameters()), 
+        #     lr=current_learning_rate,
+        # )
+
         if args.warm_up_steps:
             warm_up_steps = args.warm_up_steps
         else:
@@ -305,6 +347,9 @@ def main(args):
     else:
         logging.info('Ramdomly Initializing %s Model...' % args.model)
         init_step = 0
+        best_val_mrr = 0.0
+        best_step = 0
+
     
     step = init_step
     
@@ -328,26 +373,42 @@ def main(args):
         #Training Loop
         for step in range(init_step, args.max_steps):
             
-            log = kge_model.train_step(kge_model, optimizer, train_iterator, args)
+            log = kge_model.train_step(kge_model, optimizer, train_iterator, args,step=step)
             
             training_logs.append(log)
             
-            if step >= warm_up_steps:
-                current_learning_rate = current_learning_rate / 10
-                logging.info('Change learning_rate to %f at step %d' % (current_learning_rate, step))
-                optimizer = torch.optim.Adam(
-                    filter(lambda p: p.requires_grad, kge_model.parameters()), 
-                    lr=current_learning_rate
-                )
-                warm_up_steps = warm_up_steps * 3
-            
-            if step % args.save_checkpoint_steps == 0:
-                save_variable_list = {
-                    'step': step, 
-                    'current_learning_rate': current_learning_rate,
-                    'warm_up_steps': warm_up_steps
-                }
-                save_model(kge_model, optimizer, save_variable_list, args)
+            # if step >= warm_up_steps:
+            #     current_learning_rate = current_learning_rate / 10
+            #     logging.info('Change learning_rate to %f at step %d' % (current_learning_rate, step))
+            #     optimizer = torch.optim.Adam(
+            #         filter(lambda p: p.requires_grad, kge_model.parameters()), 
+            #         lr=current_learning_rate
+            #     )
+            #     warm_up_steps = warm_up_steps * 3
+
+        # Adjust learning rate  
+        # Smooth LR decay every step
+            adjust_learning_rate(
+                optimizer,
+                step,
+                max_steps=args.max_steps,
+                initial_lr=args.learning_rate,
+                final_lr=1e-5  # tune the final learning rate as needed
+            )
+            # ✏️ Log the learning rate decay every 1000 steps (or any interval you want)
+            if step % 1000 == 0:
+                current_lr = optimizer.param_groups[0]['lr']
+                logging.info(f"Step {step}: Adjusted learning rate to {current_lr:.6e}")
+
+
+            # Saves checkpoint at every N steps
+            # if step % args.save_checkpoint_steps == 0:
+            #     save_variable_list = {
+            #         'step': step, 
+            #         'current_learning_rate': current_learning_rate,
+            #         'warm_up_steps': warm_up_steps
+            #     }
+            #     save_model(kge_model, optimizer, save_variable_list, args)
                 
             if step % args.log_steps == 0:
                 metrics = {}
@@ -355,28 +416,73 @@ def main(args):
                     metrics[metric] = sum([log[metric] for log in training_logs])/len(training_logs)
                 log_metrics('Training average', step, metrics)
                 training_logs = []
+
+            # # Add this at the top of the training loop
+            # best_val_mrr = 0.0
+            # best_step = 0 
                 
             if args.do_valid and step % args.valid_steps == 0:
                 logging.info('Evaluating on Valid Dataset...')
+                # metrics = kge_model.test_step(kge_model, valid_triples, all_true_triples, args)
+                # log_metrics('Valid', step, metrics)
+
                 metrics = kge_model.test_step(kge_model, valid_triples, all_true_triples, args)
                 log_metrics('Valid', step, metrics)
+
+                # Save only if MRR improves
+                # if metrics['MRR'] > best_val_mrr:
+                #     best_val_mrr = metrics['MRR']
+                #     best_step = step
+                #     logging.info(f'New best model at step {step}, MRR: {best_val_mrr:.4f}')
+                    
+                #     save_variable_list = {
+                #         'step': step,
+                #         'current_learning_rate': current_learning_rate,
+                #         'warm_up_steps': warm_up_steps
+                #     }
+                #     save_model(kge_model, optimizer, save_variable_list, args)
+
+                if metrics['MRR'] > best_val_mrr:
+                    if step != best_step:  # only log if it's a new best step
+                        logging.info(f'New best model at step {step}, MRR: {metrics['MRR']:.4f}')
+                    
+                    best_val_mrr = metrics['MRR']
+                    best_step = step
+
+                    save_variable_list = {
+                        'step': step,
+                        'current_learning_rate': current_learning_rate,
+                        'warm_up_steps': warm_up_steps
+                    }
+                    save_model(kge_model, optimizer, save_variable_list, args)
+
+
         
-        save_variable_list = {
-            'step': step, 
-            'current_learning_rate': current_learning_rate,
-            'warm_up_steps': warm_up_steps
-        }
-        save_model(kge_model, optimizer, save_variable_list, args)
+        # save_variable_list = {
+        #     'step': step, 
+        #     'current_learning_rate': current_learning_rate,
+        #     'warm_up_steps': warm_up_steps
+        # }
+        # save_model(kge_model, optimizer, save_variable_list, args)
         
     if args.do_valid:
         logging.info('Evaluating on Valid Dataset...')
         metrics = kge_model.test_step(kge_model, valid_triples, all_true_triples, args)
         log_metrics('Valid', step, metrics)
     
+    # if args.do_test:
+    #     logging.info('Evaluating on Test Dataset...')
+    #     metrics = kge_model.test_step(kge_model, test_triples, all_true_triples, args)
+    #     log_metrics('Test', step, metrics)
+
+    # After training, load the best model before testing
     if args.do_test:
-        logging.info('Evaluating on Test Dataset...')
+        # logging.info(f'Loading best model from step {best_step}...')
+        logging.info(f" Using best validation model from step {best_step} for final test evaluation.")
+        checkpoint = torch.load(os.path.join(args.save_path, 'checkpoint'))
+        kge_model.load_state_dict(checkpoint['model_state_dict'])
         metrics = kge_model.test_step(kge_model, test_triples, all_true_triples, args)
-        log_metrics('Test', step, metrics)
+        log_metrics('Test', best_step, metrics)
     
     if args.evaluate_train:
         logging.info('Evaluating on Training Dataset...')
