@@ -1,3 +1,5 @@
+
+
 #!/usr/bin/python3
 
 from __future__ import absolute_import
@@ -22,7 +24,7 @@ from dataloader import TestDataset
 class KGEModel(nn.Module):
     def __init__(self, model_name, nentity, nrelation, hidden_dim, gamma, 
                  double_entity_embedding=False, double_relation_embedding=False,
-             use_eras=False, k_prototypes=4,type_map_path=None, entity2id=None,type_lambda=1.0):
+             use_eras=False, k_prototypes=4,type_map_path=None, entity2id=None,type_lambda=1.0,init_modulus_weight=3.5):
         super(KGEModel, self).__init__()
         self.model_name = model_name
         self.nentity = nentity
@@ -77,7 +79,7 @@ class KGEModel(nn.Module):
             # self.phase_weight = nn.Parameter(torch.Tensor([1.0]))
             # self.modulus_weight = nn.Parameter(torch.Tensor([3.5]))
             self.phase_weight = nn.Parameter(torch.ones(self.nrelation, 1))
-            self.modulus_weight = nn.Parameter(torch.ones(self.nrelation, 1) * 3.5)
+            self.modulus_weight = nn.Parameter(torch.ones(self.nrelation, 1) * init_modulus_weight)
 
            
         self.use_type_bias = False  # Default

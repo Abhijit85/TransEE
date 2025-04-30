@@ -1,3 +1,4 @@
+
 #!/usr/bin/python3
 
 from __future__ import absolute_import
@@ -19,6 +20,8 @@ from model import KGEModel
 
 from dataloader import TrainDataset
 from dataloader import BidirectionalOneShotIterator
+
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(
@@ -72,6 +75,9 @@ def parse_args(args=None):
     parser.add_argument('-eras','--use_eras', action='store_true', help='Enable ERAS for RelatE')
     parser.add_argument('--k_prototypes', default=4, type=int, help='Number of ERAS prototypes')
 
+    parser.add_argument('--init_modulus_weight', type=float, default=2.5,help='Initial value for RelatE modulus weight (default: 3.5)')
+
+
 
     # Type constraints
     parser.add_argument('--type_map_path', type=str, default=None, help='Path to entity-type map JSON file')
@@ -99,7 +105,9 @@ def override_config(args):
     args.double_relation_embedding = argparse_dict['double_relation_embedding']
     args.hidden_dim = argparse_dict['hidden_dim']
     args.test_batch_size = argparse_dict['test_batch_size']
-    
+    args.init_modulus_weight = argparse_dict.get('init_modulus_weight', 3.0) # adding the new modulus weight parameter
+
+
 def save_model(model, optimizer, save_variable_list, args):
     '''
     Save the parameters of the model and the optimizer,
@@ -165,20 +173,20 @@ def set_logger(args):
 
 # Function to adjust learning rate
 
-def adjust_learning_rate(optimizer, step, max_steps, initial_lr, final_lr):
-    """
-    Linearly decays learning rate from initial_lr to final_lr based on current training step.
-    """
-    # progress = step / max_steps
-    # new_lr = initial_lr - (initial_lr - final_lr) * progress
-    # new_lr = max(new_lr, final_lr)  # Clamp to final_lr if needed
+# def adjust_learning_rate(optimizer, step, max_steps, initial_lr, final_lr):
+#     """
+#     Linearly decays learning rate from initial_lr to final_lr based on current training step.
+#     """
+#     # progress = step / max_steps
+#     # new_lr = initial_lr - (initial_lr - final_lr) * progress
+#     # new_lr = max(new_lr, final_lr)  # Clamp to final_lr if needed
 
-    # Cosine decay, polynomial decay, or simple linear decay (easy one here)
-    decay_ratio = step / max_steps
-    new_lr = initial_lr * (1.0 - decay_ratio) + final_lr * decay_ratio
+#     # Cosine decay, polynomial decay, or simple linear decay (easy one here)
+#     decay_ratio = step / max_steps
+#     new_lr = initial_lr * (1.0 - decay_ratio) + final_lr * decay_ratio
 
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = new_lr
+#     for param_group in optimizer.param_groups:
+#         param_group['lr'] = new_lr
 
 # Function to add reciprocal triples
 
@@ -287,7 +295,8 @@ def main(args):
         k_prototypes=args.k_prototypes,
         # Type constraints
         type_map_path=args.type_map_path,
-        entity2id=entity2id
+        entity2id=entity2id, 
+        init_modulus_weight=args.init_modulus_weight
     )
     
     logging.info('Model Parameter Configuration:')
@@ -324,10 +333,12 @@ def main(args):
             lr=current_learning_rate,weight_decay=0.000001
         )
 
-        # optimizer = torch.optim.AdamW(
-        #     filter(lambda p: p.requires_grad, kge_model.parameters()), 
-        #     lr=current_learning_rate,
-        # )
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=args.max_steps,
+            eta_min=1e-5
+        )
+
 
         if args.warm_up_steps:
             warm_up_steps = args.warm_up_steps
@@ -374,6 +385,9 @@ def main(args):
         for step in range(init_step, args.max_steps):
             
             log = kge_model.train_step(kge_model, optimizer, train_iterator, args,step=step)
+
+            scheduler.step()   # Smooth cosine update
+
             
             training_logs.append(log)
             
@@ -388,13 +402,13 @@ def main(args):
 
         # Adjust learning rate  
         # Smooth LR decay every step
-            adjust_learning_rate(
-                optimizer,
-                step,
-                max_steps=args.max_steps,
-                initial_lr=args.learning_rate,
-                final_lr=1e-5  # tune the final learning rate as needed
-            )
+            # adjust_learning_rate(
+            #     optimizer,
+            #     step,
+            #     max_steps=args.max_steps,
+            #     initial_lr=args.learning_rate,
+            #     final_lr=1e-5  # tune the final learning rate as needed
+            # )
             # ✏️ Log the learning rate decay every 1000 steps (or any interval you want)
             if step % 1000 == 0:
                 current_lr = optimizer.param_groups[0]['lr']
@@ -415,7 +429,14 @@ def main(args):
                 for metric in training_logs[0].keys():
                     metrics[metric] = sum([log[metric] for log in training_logs])/len(training_logs)
                 log_metrics('Training average', step, metrics)
-                training_logs = []
+
+
+                # 📝 Log LR too
+                current_lr = optimizer.param_groups[0]['lr']
+                logging.info(f"Step {step}: Learning Rate = {current_lr:.8f}")
+
+
+                # training_logs = []
 
             # # Add this at the top of the training loop
             # best_val_mrr = 0.0
@@ -491,3 +512,5 @@ def main(args):
         
 if __name__ == '__main__':
     main(parse_args())
+
+
