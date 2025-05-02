@@ -81,8 +81,9 @@ def parse_args(args=None):
 
     # Type constraints
     parser.add_argument('--type_map_path', type=str, default=None, help='Path to entity-type map JSON file')
-    parser.add_argument('--type_lambda', type=float, default=1.0,
-                    help='Scaling factor for type bias injection (default 1.0)')
+    parser.add_argument('--type_lambda', type=float, default=1.0,help='Scaling factor for type bias injection (default 1.0)')
+    parser.add_argument('--init_rel_width', type=float, default=0.1,help='Initial value for relation-specific slope (default: 0.1)')
+
 
 
 
@@ -296,7 +297,9 @@ def main(args):
         # Type constraints
         type_map_path=args.type_map_path,
         entity2id=entity2id, 
-        init_modulus_weight=args.init_modulus_weight
+        init_modulus_weight=args.init_modulus_weight,
+        init_rel_width=args.init_rel_width
+
     )
     
     logging.info('Model Parameter Configuration:')
@@ -512,5 +515,4 @@ def main(args):
         
 if __name__ == '__main__':
     main(parse_args())
-
 

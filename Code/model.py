@@ -1,5 +1,3 @@
-
-
 #!/usr/bin/python3
 
 from __future__ import absolute_import
@@ -24,7 +22,7 @@ from dataloader import TestDataset
 class KGEModel(nn.Module):
     def __init__(self, model_name, nentity, nrelation, hidden_dim, gamma, 
                  double_entity_embedding=False, double_relation_embedding=False,
-             use_eras=False, k_prototypes=4,type_map_path=None, entity2id=None,type_lambda=1.0,init_modulus_weight=3.5):
+             use_eras=False, k_prototypes=4,type_map_path=None, entity2id=None,type_lambda=1.0,init_modulus_weight=3.5,init_rel_width=0.1):
         super(KGEModel, self).__init__()
         self.model_name = model_name
         self.nentity = nentity
@@ -47,6 +45,14 @@ class KGEModel(nn.Module):
         
         self.entity_dim = hidden_dim*2 if double_entity_embedding else hidden_dim
         self.relation_dim = hidden_dim*2 if double_relation_embedding else hidden_dim
+
+        #Slope-Weighted L1 Versions 
+        # self.rel_width = nn.Parameter(torch.ones(nrelation, self.relation_dim // 2))
+        self.rel_width = nn.Parameter(torch.full((nrelation, self.relation_dim // 2), init_rel_width))
+
+
+
+
 
         # Debugging
 
@@ -493,13 +499,59 @@ class KGEModel(nn.Module):
         # Compute scores
         if mode == 'head-batch':
             phase_score = torch.abs(torch.sin((tail_phase - rel_phase - head_phase) / 2)).sum(dim=2, keepdim=True)
-            modulus_score = torch.norm(tail_modulus * (1 - bias_relation) - head_modulus * (rel_modulus + bias_relation), p=2, dim=2, keepdim=True)
+            # modulus_score = torch.norm(tail_modulus * (1 - bias_relation) - head_modulus * (rel_modulus + bias_relation), p=2, dim=2, keepdim=True)
+            # Assuming self.rel_width is a learnable parameter of shape [nrelation, dim] initialized in __init__:
+            # self.rel_width = nn.Parameter(torch.ones(nrelation, embedding_dim // 2))
+
+            # Head-batch
+            mod_dist = torch.abs(tail_modulus * (1 - bias_relation) - head_modulus * (rel_modulus + bias_relation))
+            # modulus_score = torch.sum(self.rel_width[relation_ids].unsqueeze(1) * mod_dist, dim=2, keepdim=True)
+            # rel_width_exp = self.rel_width[relation_ids] 
+            rel_width_exp = F.softplus(self.rel_width[relation_ids]) # shape: [B, d]
+            if mod_dist.size(1) != 1:  # For head-batch or tail-batch (with negatives)
+                rel_width_exp = rel_width_exp.unsqueeze(1).expand(-1, mod_dist.size(1), -1)  # [B, N, d]
+                
+            else:
+                rel_width_exp = rel_width_exp.unsqueeze(1)  # [B, 1, d]
+                
+
+            modulus_score = torch.sum(rel_width_exp * mod_dist, dim=2, keepdim=True)
+
+
+
         elif mode == 'tail-batch':
             phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2, keepdim=True)
-            modulus_score = torch.norm(head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation), p=2, dim=2, keepdim=True)
+            # modulus_score = torch.norm(head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation), p=2, dim=2, keepdim=True)
+
+            # Tail-batch
+            mod_dist = torch.abs(head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation))
+            # modulus_score = torch.sum(self.rel_width[relation_ids].unsqueeze(1) * mod_dist, dim=2, keepdim=True)
+            # rel_width_exp = self.rel_width[relation_ids]  # shape: [B, d]
+            rel_width_exp = F.softplus(self.rel_width[relation_ids]) # shape: [B, d]
+            if mod_dist.size(1) != 1:  # For head-batch or tail-batch (with negatives)
+                rel_width_exp = rel_width_exp.unsqueeze(1).expand(-1, mod_dist.size(1), -1)  # [B, N, d]
+            else:
+                rel_width_exp = rel_width_exp.unsqueeze(1)  # [B, 1, d]
+
+            modulus_score = torch.sum(rel_width_exp * mod_dist, dim=2, keepdim=True)
+
+
+
         else:  # default
             phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2, keepdim=True)
-            modulus_score = torch.norm(head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation), p=2, dim=2, keepdim=True)
+            # modulus_score = torch.norm(head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation), p=2, dim=2, keepdim=True)
+
+            # Rest
+            mod_dist = torch.abs(head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation))
+            # modulus_score = torch.sum(self.rel_width[relation_ids].unsqueeze(1) * mod_dist, dim=2, keepdim=True)
+            # rel_width_exp = self.rel_width[relation_ids]  # shape: [B, d]
+            rel_width_exp = F.softplus(self.rel_width[relation_ids]) # shape: [B, d]
+            if mod_dist.size(1) != 1:  # For head-batch or tail-batch (with negatives)
+                rel_width_exp = rel_width_exp.unsqueeze(1).expand(-1, mod_dist.size(1), -1)  # [B, N, d]
+            else:
+                rel_width_exp = rel_width_exp.unsqueeze(1)  # [B, 1, d]
+
+            modulus_score = torch.sum(rel_width_exp * mod_dist, dim=2, keepdim=True)
 
 
         # Expand phase/modulus weights if needed
