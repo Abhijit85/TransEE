@@ -23,11 +23,9 @@ We evaluate RelatE using the following standard KGE metrics:
 ### Supported Datasets
 | Dataset   | #R   | #E    | # (Train / Valid / Test)          |
 |-----------|------|-------|-----------------------------------|
-| FB15K     | 1,345|14,951 | 483,142 / 50,000 / 59,071         |
 | FB15K-237 | 237  |14,541 | 272,115 / 17,535 / 20,466         |
-| WN18      | 18   |40,943 | 141,442 / 5,000 / 5,000           |
 | WN18RR    | 11   |40,943 | 86,835 / 3,034 / 3,134            |
-
+| YAGO3-10  | 37   |123,182| 1,079,040 / 5,000 / 5,000        |
 ### Usage
 
 Knowledge Graph Data Format:
