@@ -60,10 +60,22 @@ python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/Rela
 | YAGO3-10   | 2048 | 1024 | 20 | 2 | 512 | 4.2 | 7e-5 |
 
 ### Results of RelatE model
-| Dataset | FB15k | FB15k-237 | WN18 | WN18RR | YAGO3-10 |
-|-------------|-------------|-------------|-------------|-------------|-------------|
-| MR | 51.9 | 193 | 162.6 | 1943 | 886 |
-| HITS@10 | .845 | .544 | .955 | .551 | .59 |
+
+For uniform sampling:
+
+| Dataset | FB15k-237 | WN18RR | YAGO3-10 |
+|-------------|-------------|-------------|-------------|
+| MRR | 0.336 | 0.221 | 0.51 |
+| MR | 188 | 3876 | 908 |
+| HITS@10 | 0.525 | 0.522 | 0.657 |
+
+For adversarial sampling:
+
+| Dataset | FB15k-237 | WN18RR | YAGO3-10 |
+|-------------|-------------|-------------|-------------|
+| MRR | 0.339 | 0.239 | 0.521 |
+| MR | 166 | 3414 | 688 |
+| HITS@10 | 0.531 | 0.534 | 0.680 |
 
 ## Acknowledgement
 We refer to the code of [RotatE](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding). Thanks for their contributions.
