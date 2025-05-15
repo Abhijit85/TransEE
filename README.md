@@ -1,7 +1,7 @@
 # RelatE: Relational Embeddings through Modulus-Phase Decomposition
 ![Alt text](RelatE..png)
 ### Introduction
-This is a PyTorch implementation of RelatE for learning embeddings in knowledge graphs (KGE). RelatE introduces enhancements that improve handling of complex relations (one-to-many, many-to-one, many-to-many) in knowledge graphs. The implementation is optimized for fast training on large-scale knowledge graphs and can achieve state-of-the-art performance on datasets like FB15K, WN18, and YAGO3-10.
+This is a PyTorch implementation of RelatE for learning embeddings in knowledge graphs (KGE). RelatE introduces enhancements that improve the handling of complex relations (one-to-many, many-to-one, many-to-many) in knowledge graphs. The implementation is optimized for fast training on large-scale knowledge graphs and can achieve state-of-the-art performance on datasets like FB15K, WN18, and YAGO3-10.
 
 ### Implemented Features
 - ✔ Supports Diverse Relational Patterns
@@ -14,6 +14,7 @@ This is a PyTorch implementation of RelatE for learning embeddings in knowledge 
 We evaluate RelatE using the following standard KGE metrics:
 - Mean Rank (MR): Measures the average rank of correct entities.
 - Hits@10 (Filtered): Percentage of test triples where the correct entity is ranked in the top 10 after filtering out corrupted triples.
+- Mean Reciprocal Rank (MRR): Measures the average reciprocal rank of the correct entities.
 
 ### Loss Function:
 - Uniform Negative Sampling
@@ -52,13 +53,11 @@ To change the modulus and phase weights, locate the model.py file in the Code fo
 python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/RelatE_FB15K --test_batch_size 16 --cuda
 ```
 ### Hyperparameters
-| Dataset | Negative sample size n  | Hidden_dim d | Margin g | -a Adversial Temp | Batch_Size | mw | pw | Learning rate | Steps |Regularization|
-|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|--------|
-| FB15k | 256 | 1000 | 12 | 1 | 1024 | 4 | 1.5 | 0.0001 | 100k |0|
-| WN18  | 512 | 250 | 6 | 1 | 1024 | 3.5 | 1.5 | 0.0005 | 80k |0.00001|
-| FB15k-237  | 1000 | 256 | 12 | 1 | 1024 | 3.5 | 1 | 0.00005 | 120k |0|
-| WN18RR  | 512 | 250 | 4 | 1 | 512 | 3.5 | 1.5 | 0.0005 | 100k |0.00001|
-| YAGO3-10   | 512 | 2500 | 6 | 2 | 1024 | 5.5 | 2.5 | 0.0005 | 80k |0|
+| Dataset | Negative sample size n  | Hidden_dim d | Margin g | -a Adversial Temp | Batch_Size | mw | Learning rate
+|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
+| FB15k-237  | 2048 | 1024 | 18 | 2 | 512 | 3.5 |7e-5 |
+| WN18RR  | 2048 | 1024 | 6 | 1 | 512 | 3.5 |1.5e-4 |
+| YAGO3-10   | 2048 | 1024 | 20 | 2 | 512 | 4.2 | 7e-5 |
 
 ### Results of RelatE model
 | Dataset | FB15k | FB15k-237 | WN18 | WN18RR | YAGO3-10 |
