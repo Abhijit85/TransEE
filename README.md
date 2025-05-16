@@ -53,9 +53,9 @@ python run.py --do_test --data_path ./data/FB15K --init_checkpoint ./output/Rela
 ### Hyperparameters
 | Dataset | Negative sample size n  | Hidden_dim d | Margin g | -a Adversial Temp | Batch_Size | mw | Learning rate
 |-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
-| FB15k-237  | 2048 | 1024 | 18 | 2 | 512 | 3.5 |7e-5 |
-| WN18RR  | 2048 | 1024 | 6 | 1 | 512 | 3.5 |1.5e-4 |
-| YAGO3-10   | 2048 | 1024 | 20 | 2 | 512 | 4.2 | 7e-5 |
+| FB15k-237  | 1024 | 768 | 14 | 1.2 | 1024 | 2.8 |2e-5 |
+| WN18RR  | 3072 | 1024 | 16 | 1.5 | 512 | 4.0 |2.2e-4 |
+| YAGO3-10   | 2048 | 1024 | 20 | 1.5 | 512 | 4.2 | 7e-5 |
 
 ### Results of RelatE model
 
