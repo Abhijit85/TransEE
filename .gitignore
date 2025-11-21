@@ -173,3 +173,5 @@ cython_debug/
 # models
 models/
 Code/nohup.out
+model_tuned/
+data/

@@ -10,18 +10,23 @@ import json
 import logging
 import os
 import random
+from collections import defaultdict
 
 import numpy as np
 import torch
+
+from dotenv import load_dotenv
 
 from torch.utils.data import DataLoader
 
 from model import KGEModel
 
-from dataloader import TrainDataset
+from dataloader import TrainDataset, PathDataset
 from dataloader import BidirectionalOneShotIterator
 
 from torch.optim.lr_scheduler import CosineAnnealingLR
+
+load_dotenv()
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(
@@ -41,7 +46,8 @@ def parse_args(args=None):
                         help='Region Id for Countries S1/S2/S3 datasets, DO NOT MANUALLY SET')
     
     parser.add_argument('--data_path', type=str, default=None)
-    parser.add_argument('--model', default='TransE', type=str)
+    default_model = 'TransE'
+    parser.add_argument('--model', default=default_model, type=str)
     parser.add_argument('-de', '--double_entity_embedding', action='store_true')
     parser.add_argument('-dr', '--double_relation_embedding', action='store_true')
     
@@ -57,6 +63,24 @@ def parse_args(args=None):
                         help='Otherwise use subsampling weighting like in word2vec')
     
     parser.add_argument('-lr', '--learning_rate', default=0.0001, type=float)
+    parser.add_argument('--lr_t_max', default=None, type=int,
+                        help='Optional cosine scheduler period; defaults to max_steps')
+    parser.add_argument('--lr_eta_min', default=1e-5, type=float,
+                        help='Minimum learning rate for cosine scheduler decay')
+    parser.add_argument('--lr_drop_steps', type=int, nargs='+', default=None,
+                        help='Optional manual LR drop steps (training iterations)')
+    parser.add_argument('--lr_drop_gamma', type=float, default=0.5,
+                        help='Multiplicative factor applied at each manual drop step')
+    parser.add_argument('--secondary_warmup_step', type=int, default=None,
+                        help='Optional step to apply a secondary warm-up LR bump')
+    parser.add_argument('--secondary_warmup_gamma', type=float, default=1.0,
+                        help='Multiplicative factor for the secondary warm-up bump')
+    parser.add_argument('--stop_at_first_peak', action='store_true',
+                        help='Stop training once validation MRR falls below its best value')
+    parser.add_argument('--early_stop_patience', type=int, default=None,
+                        help='Number of consecutive non-improving validations before stopping')
+    parser.add_argument('--early_stop_min_delta', type=float, default=0.0,
+                        help='Minimum MRR improvement required to reset patience')
     parser.add_argument('-cpu', '--cpu_num', default=10, type=int)
     parser.add_argument('-init', '--init_checkpoint', default=None, type=str)
     parser.add_argument('-save', '--save_path', default=None, type=str)
@@ -84,11 +108,128 @@ def parse_args(args=None):
     parser.add_argument('--type_lambda', type=float, default=1.0,help='Scaling factor for type bias injection (default 1.0)')
     parser.add_argument('--init_rel_width', type=float, default=0.1,help='Initial value for relation-specific slope (default: 0.1)')
 
-
-
-
+    # Multi-hop / phase extensions
+    parser.add_argument('--path_loss_weight', type=float, default=0.0, help='Weight of multi-hop path ranking loss')
+    parser.add_argument('--path_negative_size', type=int, default=8, help='Number of negative tails per path sample')
+    parser.add_argument('--path_batch_size', type=int, default=64)
+    parser.add_argument('--path_hops', type=int, nargs='+', default=[2, 3], help='Hop lengths to enumerate for path training')
+    parser.add_argument('--path_max_per_hop', type=int, default=5000, help='Maximum number of sampled paths per hop length')
+    parser.add_argument('--path_consistency_weight', type=float, default=0.0, help='Optional consistency loss weight between composed relation and explicit path')
+    parser.add_argument('--path_curriculum_steps', type=int, nargs=2, default=None, help='Start/stop steps for enabling path loss')
+    parser.add_argument('--path_margin', type=float, default=1.0, help='Margin for path ranking loss')
+    parser.add_argument('--path_consistency_margin', type=float, default=1.0, help='Margin for path consistency regularizer')
+    parser.add_argument('--phase_harmonics', type=int, default=2, help='Number of phase harmonics for multi-frequency scoring')
+    parser.add_argument('--inverse_map_path', type=str, default=None, help='Optional JSON mapping of relation -> inverse relation for phase tying')
     
-    return parser.parse_args(args)
+    parsed_args = parser.parse_args(args)
+
+    env_data_path = os.getenv('DATA_PATH')
+    if parsed_args.data_path is None and env_data_path:
+        parsed_args.data_path = env_data_path
+
+    env_model = os.getenv('MODEL_NAME')
+    if env_model and parsed_args.model == default_model:
+        parsed_args.model = env_model
+
+    return parsed_args
+
+def load_entity_types(type_map_path, entity2id):
+    if not type_map_path or not os.path.exists(type_map_path):
+        return {}
+    with open(type_map_path, 'r') as fin:
+        type_map = json.load(fin)
+    entity_types = {}
+    for entity, etype in type_map.items():
+        if entity in entity2id:
+            entity_types[entity2id[entity]] = etype
+    return entity_types
+
+def load_inverse_relations(inverse_map_path, relation2id):
+    if not inverse_map_path or not os.path.exists(inverse_map_path):
+        return {}
+    with open(inverse_map_path, 'r') as fin:
+        inverse_map = json.load(fin)
+    inverse_id_map = {}
+    for rel_name, inv_name in inverse_map.items():
+        if rel_name not in relation2id:
+            logging.warning('Inverse map key %s not present in relations.dict', rel_name)
+            continue
+        if inv_name not in relation2id:
+            relation2id[inv_name] = len(relation2id)
+        inverse_id_map[relation2id[rel_name]] = relation2id[inv_name]
+    logging.info('Loaded %d asymmetric inverse mappings.', len(inverse_id_map))
+    return inverse_id_map
+
+def add_inverse_triples(triples, inverse_id_map):
+    if not inverse_id_map:
+        return triples
+    augmented = list(triples)
+    for h, r, t in triples:
+        inv_r = inverse_id_map.get(r)
+        if inv_r is not None:
+            augmented.append((t, inv_r, h))
+    return augmented
+
+def build_adjacency(triples):
+    adjacency = defaultdict(list)
+    for h, r, t in triples:
+        adjacency[h].append((r, t))
+    return adjacency
+
+def enumerate_paths(adjacency, hops, max_paths_per_hop=None, seed=0):
+    rng = random.Random(seed)
+    all_paths = []
+    max_hop = max(hops) if hops else 0
+    if max_hop < 2:
+        return all_paths
+
+    for hop in hops:
+        if hop < 2:
+            continue
+        hop_paths = []
+        for head, neighbors in adjacency.items():
+            partial = [(head, [rel], tail) for rel, tail in neighbors]
+            depth = 1
+            current = partial
+            while depth < hop:
+                next_paths = []
+                for _, rels, tail in current:
+                    for rel_next, tail_next in adjacency.get(tail, []):
+                        next_paths.append((head, rels + [rel_next], tail_next))
+                current = next_paths
+                depth += 1
+                if not current:
+                    break
+            hop_paths.extend(current)
+        rng.shuffle(hop_paths)
+        if max_paths_per_hop is not None:
+            hop_paths = hop_paths[:max_paths_per_hop]
+        all_paths.extend(hop_paths)
+    return all_paths
+
+def build_two_hop_cache(adjacency, max_candidates=256, seed=0):
+    rng = random.Random(seed)
+    cache = {}
+    for head, neighbors in adjacency.items():
+        candidates = set()
+        for _, tail in neighbors:
+            candidates.add(tail)
+            for _, t2 in adjacency.get(tail, []):
+                candidates.add(t2)
+        if not candidates:
+            continue
+        cand_list = list(candidates)
+        rng.shuffle(cand_list)
+        cache[head] = cand_list[:max_candidates]
+    return cache
+
+def should_enable_path_loss(step, args):
+    if args.path_loss_weight <= 0:
+        return False
+    if args.path_curriculum_steps is None:
+        return True
+    start, end = args.path_curriculum_steps
+    return (step >= start) and (end <= 0 or step <= end)
 
 def override_config(args):
     '''
@@ -119,20 +260,22 @@ def save_model(model, optimizer, save_variable_list, args):
     with open(os.path.join(args.save_path, 'config.json'), 'w') as fjson:
         json.dump(argparse_dict, fjson)
 
+    model_to_save = model.module if hasattr(model, 'module') else model
+
     torch.save({
         **save_variable_list,
-        'model_state_dict': model.state_dict(),
+        'model_state_dict': model_to_save.state_dict(),
         'optimizer_state_dict': optimizer.state_dict()},
         os.path.join(args.save_path, 'checkpoint')
     )
     
-    entity_embedding = model.entity_embedding.detach().cpu().numpy()
+    entity_embedding = model_to_save.entity_embedding.detach().cpu().numpy()
     np.save(
         os.path.join(args.save_path, 'entity_embedding'), 
         entity_embedding
     )
     
-    relation_embedding = model.relation_embedding.detach().cpu().numpy()
+    relation_embedding = model_to_save.relation_embedding.detach().cpu().numpy()
     np.save(
         os.path.join(args.save_path, 'relation_embedding'), 
         relation_embedding
@@ -240,6 +383,10 @@ def main(args):
             rid, relation = line.strip().split('\t')
             relation2id[relation] = int(rid)
     
+    inverse_id_map = load_inverse_relations(args.inverse_map_path, relation2id)
+    
+    entity_types = load_entity_types(args.type_map_path, entity2id)
+    
     # Read regions for Countries S* datasets
     if args.countries:
         regions = list()
@@ -253,9 +400,7 @@ def main(args):
     nrelation = len(relation2id)
     
     args.nentity = nentity
-    # args.nrelation = nrelation
-    # Double relation count for reciprocal training
-    args.nrelation = nrelation * 2
+    args.nrelation = nrelation
     
     logging.info('Model: %s' % args.model)
     logging.info('Data Path: %s' % args.data_path)
@@ -274,10 +419,10 @@ def main(args):
     valid_triples = read_triple(os.path.join(args.data_path, 'valid.txt'), entity2id, relation2id)
     test_triples  = read_triple(os.path.join(args.data_path, 'test.txt'), entity2id, relation2id)
 
-    # Enable reciprocal training
-    train_triples = add_reciprocal_triples(train_triples, nrelation)
-    valid_triples = add_reciprocal_triples(valid_triples, nrelation)
-    test_triples  = add_reciprocal_triples(test_triples, nrelation)
+    train_triples_raw = list(train_triples)
+    train_triples = add_inverse_triples(train_triples, inverse_id_map)
+    valid_triples = add_inverse_triples(valid_triples, inverse_id_map)
+    test_triples  = add_inverse_triples(test_triples, inverse_id_map)
     
     #All true triples
     all_true_triples = train_triples + valid_triples + test_triples
@@ -298,7 +443,8 @@ def main(args):
         type_map_path=args.type_map_path,
         entity2id=entity2id, 
         init_modulus_weight=args.init_modulus_weight,
-        init_rel_width=args.init_rel_width
+        init_rel_width=args.init_rel_width,
+        phase_harmonics=args.phase_harmonics
 
     )
     
@@ -306,9 +452,43 @@ def main(args):
     for name, param in kge_model.named_parameters():
         logging.info('Parameter %s: %s, require_grad = %s' % (name, str(param.size()), str(param.requires_grad)))
 
-    if args.cuda:
-        kge_model = kge_model.cuda()
+    device = torch.device('cuda' if args.cuda and torch.cuda.is_available() else 'cpu')
+    if args.cuda and not torch.cuda.is_available():
+        logging.warning('CUDA requested but not available. Falling back to CPU execution.')
+        args.cuda = False
+        device = torch.device('cpu')
+
+    kge_model = kge_model.to(device)
+
+    if args.cuda and torch.cuda.device_count() > 1:
+        logging.info('Multiple GPUs detected (%d). Enabling DataParallel.', torch.cuda.device_count())
+        kge_model = torch.nn.DataParallel(kge_model)
     
+    path_iterator = None
+    if args.do_train and args.path_loss_weight > 0:
+        adjacency = build_adjacency(train_triples_raw)
+        two_hop_cache = build_two_hop_cache(adjacency, max_candidates=args.path_negative_size * 16)
+        path_bank = enumerate_paths(adjacency, args.path_hops, args.path_max_per_hop)
+        if not path_bank:
+            logging.warning('Requested path loss but no admissible paths were found.')
+        else:
+            logging.info('Constructed %d multi-hop paths for training.', len(path_bank))
+            path_dataset = PathDataset(
+                path_bank,
+                nentity,
+                negative_sample_size=args.path_negative_size,
+                entity_types=entity_types,
+                two_hop_cache=two_hop_cache
+            )
+            path_dataloader = DataLoader(
+                path_dataset,
+                batch_size=args.path_batch_size,
+                shuffle=True,
+                num_workers=max(1, args.cpu_num//2),
+                collate_fn=PathDataset.collate_fn
+            )
+            path_iterator = BidirectionalOneShotIterator.one_shot_iterator(path_dataloader)
+
     if args.do_train:
         # Set training dataloader iterator
         train_dataloader_head = DataLoader(
@@ -338,31 +518,37 @@ def main(args):
 
         scheduler = CosineAnnealingLR(
             optimizer,
-            T_max=args.max_steps,
-            eta_min=1e-5
+            T_max=args.lr_t_max or args.max_steps,
+            eta_min=args.lr_eta_min
         )
 
+        manual_lr_drop_steps = set(args.lr_drop_steps or [])
+        applied_lr_drop_steps = set()
+        secondary_warmup_applied = False
 
         if args.warm_up_steps:
             warm_up_steps = args.warm_up_steps
         else:
             warm_up_steps = args.max_steps // 2
 
+    init_step = 0
+    best_val_mrr = 0.0
+    best_step = 0
+    patience_counter = 0
+
     if args.init_checkpoint:
         # Restore model from checkpoint directory
         logging.info('Loading checkpoint %s...' % args.init_checkpoint)
         checkpoint = torch.load(os.path.join(args.init_checkpoint, 'checkpoint'))
         init_step = checkpoint['step']
-        kge_model.load_state_dict(checkpoint['model_state_dict'])
+        model_to_load = kge_model.module if hasattr(kge_model, 'module') else kge_model
+        model_to_load.load_state_dict(checkpoint['model_state_dict'])
         if args.do_train:
             current_learning_rate = checkpoint['current_learning_rate']
             warm_up_steps = checkpoint['warm_up_steps']
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     else:
         logging.info('Ramdomly Initializing %s Model...' % args.model)
-        init_step = 0
-        best_val_mrr = 0.0
-        best_step = 0
 
     
     step = init_step
@@ -380,16 +566,63 @@ def main(args):
     # Set valid dataloader as it would be evaluated during training
     
     if args.do_train:
-        logging.info('learning_rate = %d' % current_learning_rate)
+        logging.info('learning_rate = %.6f' % current_learning_rate)
 
         training_logs = []
         
         #Training Loop
+        stop_training = False
         for step in range(init_step, args.max_steps):
+            path_batch = None
+            path_weight = args.path_loss_weight
+            if path_iterator and should_enable_path_loss(step, args):
+                path_batch = next(path_iterator)
+            else:
+                path_weight = 0.0
             
-            log = kge_model.train_step(kge_model, optimizer, train_iterator, args,step=step)
+            log = KGEModel.train_step(
+                kge_model,
+                optimizer,
+                train_iterator,
+                args,
+                step=step,
+                path_batch=path_batch,
+                path_weight=path_weight,
+                consistency_weight=args.path_consistency_weight
+            )
 
             scheduler.step()   # Smooth cosine update
+            current_learning_rate = optimizer.param_groups[0]['lr']
+
+            if (not secondary_warmup_applied
+                and args.secondary_warmup_step is not None
+                and step == args.secondary_warmup_step):
+                secondary_warmup_applied = True
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] *= args.secondary_warmup_gamma
+                scheduler.base_lrs = [base * args.secondary_warmup_gamma for base in scheduler.base_lrs]
+                if hasattr(scheduler, '_last_lr'):
+                    scheduler._last_lr = [lr * args.secondary_warmup_gamma for lr in scheduler._last_lr]
+                current_learning_rate = optimizer.param_groups[0]['lr']
+                logging.info(
+                    'Secondary LR warm-up applied at step %d: Learning Rate = %.6e',
+                    step,
+                    current_learning_rate
+                )
+
+            if manual_lr_drop_steps and step in manual_lr_drop_steps and step not in applied_lr_drop_steps:
+                applied_lr_drop_steps.add(step)
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] *= args.lr_drop_gamma
+                scheduler.base_lrs = [base * args.lr_drop_gamma for base in scheduler.base_lrs]
+                if hasattr(scheduler, '_last_lr'):
+                    scheduler._last_lr = [lr * args.lr_drop_gamma for lr in scheduler._last_lr]
+                current_learning_rate = optimizer.param_groups[0]['lr']
+                logging.info(
+                    'Manual LR drop applied at step %d: Learning Rate = %.6e',
+                    step,
+                    current_learning_rate
+                )
 
             
             training_logs.append(log)
@@ -414,8 +647,8 @@ def main(args):
             # )
             # ✏️ Log the learning rate decay every 1000 steps (or any interval you want)
             if step % 1000 == 0:
-                current_lr = optimizer.param_groups[0]['lr']
-                logging.info(f"Step {step}: Adjusted learning rate to {current_lr:.6e}")
+                current_learning_rate = optimizer.param_groups[0]['lr']
+                logging.info(f"Step {step}: Adjusted learning rate to {current_learning_rate:.6e}")
 
 
             # Saves checkpoint at every N steps
@@ -435,8 +668,8 @@ def main(args):
 
 
                 # 📝 Log LR too
-                current_lr = optimizer.param_groups[0]['lr']
-                logging.info(f"Step {step}: Learning Rate = {current_lr:.8f}")
+                current_learning_rate = optimizer.param_groups[0]['lr']
+                logging.info(f"Step {step}: Learning Rate = {current_learning_rate:.8f}")
 
 
                 # training_logs = []
@@ -450,7 +683,7 @@ def main(args):
                 # metrics = kge_model.test_step(kge_model, valid_triples, all_true_triples, args)
                 # log_metrics('Valid', step, metrics)
 
-                metrics = kge_model.test_step(kge_model, valid_triples, all_true_triples, args)
+                metrics = KGEModel.test_step(kge_model, valid_triples, all_true_triples, args)
                 log_metrics('Valid', step, metrics)
 
                 # Save only if MRR improves
@@ -466,12 +699,14 @@ def main(args):
                 #     }
                 #     save_model(kge_model, optimizer, save_variable_list, args)
 
-                if metrics['MRR'] > best_val_mrr:
+                improved = metrics['MRR'] > (best_val_mrr + args.early_stop_min_delta)
+                if improved:
                     if step != best_step:  # only log if it's a new best step
                         logging.info(f'New best model at step {step}, MRR: {metrics['MRR']:.4f}')
                     
                     best_val_mrr = metrics['MRR']
                     best_step = step
+                    patience_counter = 0
 
                     save_variable_list = {
                         'step': step,
@@ -479,9 +714,37 @@ def main(args):
                         'warm_up_steps': warm_up_steps
                     }
                     save_model(kge_model, optimizer, save_variable_list, args)
+                else:
+                    if args.stop_at_first_peak and best_val_mrr > 0:
+                        logging.info(
+                            'Validation MRR dropped from %.4f to %.4f at step %d, early stopping triggered.',
+                            best_val_mrr,
+                            metrics['MRR'],
+                            step
+                        )
+                        stop_training = True
+                        break
+                    if args.early_stop_patience:
+                        patience_counter += 1
+                        logging.info(
+                            'Validation did not improve best MRR %.4f (current %.4f). Patience %d/%d.',
+                            best_val_mrr,
+                            metrics['MRR'],
+                            patience_counter,
+                            args.early_stop_patience
+                        )
+                        if patience_counter >= args.early_stop_patience:
+                            logging.info(
+                                'Early stopping triggered after %d non-improving validations.',
+                                args.early_stop_patience
+                            )
+                            stop_training = True
+                            break
 
 
-        
+        if stop_training:
+            logging.info('Stopping training loop due to early stopping condition.')
+
         # save_variable_list = {
         #     'step': step, 
         #     'current_learning_rate': current_learning_rate,
@@ -491,7 +754,7 @@ def main(args):
         
     if args.do_valid:
         logging.info('Evaluating on Valid Dataset...')
-        metrics = kge_model.test_step(kge_model, valid_triples, all_true_triples, args)
+        metrics = KGEModel.test_step(kge_model, valid_triples, all_true_triples, args)
         log_metrics('Valid', step, metrics)
     
     # if args.do_test:
@@ -504,15 +767,15 @@ def main(args):
         # logging.info(f'Loading best model from step {best_step}...')
         logging.info(f" Using best validation model from step {best_step} for final test evaluation.")
         checkpoint = torch.load(os.path.join(args.save_path, 'checkpoint'))
-        kge_model.load_state_dict(checkpoint['model_state_dict'])
-        metrics = kge_model.test_step(kge_model, test_triples, all_true_triples, args)
+        model_to_load = kge_model.module if hasattr(kge_model, 'module') else kge_model
+        model_to_load.load_state_dict(checkpoint['model_state_dict'])
+        metrics = KGEModel.test_step(kge_model, test_triples, all_true_triples, args)
         log_metrics('Test', best_step, metrics)
     
     if args.evaluate_train:
         logging.info('Evaluating on Training Dataset...')
-        metrics = kge_model.test_step(kge_model, train_triples, all_true_triples, args)
+        metrics = KGEModel.test_step(kge_model, train_triples, all_true_triples, args)
         log_metrics('Test', step, metrics)
         
 if __name__ == '__main__':
     main(parse_args())
-

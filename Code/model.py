@@ -22,7 +22,7 @@ from dataloader import TestDataset
 class KGEModel(nn.Module):
     def __init__(self, model_name, nentity, nrelation, hidden_dim, gamma, 
                  double_entity_embedding=False, double_relation_embedding=False,
-             use_eras=False, k_prototypes=4,type_map_path=None, entity2id=None,type_lambda=1.0,init_modulus_weight=3.5,init_rel_width=0.1):
+             use_eras=False, k_prototypes=4,type_map_path=None, entity2id=None,type_lambda=1.0,init_modulus_weight=3.5,init_rel_width=0.1, phase_harmonics=2):
         super(KGEModel, self).__init__()
         self.model_name = model_name
         self.nentity = nentity
@@ -84,14 +84,21 @@ class KGEModel(nn.Module):
         if model_name == 'RelatE':
             # self.phase_weight = nn.Parameter(torch.Tensor([1.0]))
             # self.modulus_weight = nn.Parameter(torch.Tensor([3.5]))
-            self.phase_weight = nn.Parameter(torch.ones(self.nrelation, 1))
+            self.phase_weight = nn.Parameter(torch.ones(self.nrelation, 1) * (init_modulus_weight * 0.65))
             self.modulus_weight = nn.Parameter(torch.ones(self.nrelation, 1) * init_modulus_weight)
+            self.phase_harmonics = max(1, phase_harmonics)
+            self.phase_freq_param = nn.Parameter(torch.ones(self.nrelation, self.phase_harmonics))
+        else:
+            self.phase_harmonics = 1
+            self.phase_freq_param = None
 
            
         self.use_type_bias = False  # Default
+        self.base_nrelation = 0
 
         #  Store the entity2id mapping for lookups
         self.entity2id = entity2id
+        self.tie_inverses = False
 
         if type_map_path is not None and os.path.exists(type_map_path):
             import json
@@ -152,6 +159,71 @@ class KGEModel(nn.Module):
 
         if model_name == 'ComplEx' and (not double_entity_embedding or not double_relation_embedding):
             raise ValueError('ComplEx should use --double_entity_embedding and --double_relation_embedding')
+        
+    def _lookup_relation_embedding(self, relation_ids):
+        rel = torch.index_select(
+            self.relation_embedding,
+            dim=0,
+            index=relation_ids.view(-1)
+        ).view(*relation_ids.shape, -1)
+
+        if self.tie_inverses and self.base_nrelation > 0:
+            mask = relation_ids >= self.base_nrelation
+            if mask.any():
+                base_ids = relation_ids.clone()
+                base_ids[mask] -= self.base_nrelation
+                base_rel = torch.index_select(
+                    self.relation_embedding,
+                    dim=0,
+                    index=base_ids.view(-1)
+                ).view(*relation_ids.shape, -1)
+                mask_expand = mask.unsqueeze(-1)
+                rel = torch.where(mask_expand, base_rel, rel)
+                phase_dim = rel.size(-1) // 2
+                phase_slice = rel[..., phase_dim:]
+                phase_slice = torch.where(mask_expand, -phase_slice, phase_slice)
+                rel = torch.cat([rel[..., :phase_dim], phase_slice], dim=-1)
+        return rel
+
+    def aggregate_relation_weights(self, relation_ids, mask=None):
+        if relation_ids.dim() == 1:
+            relation_ids = relation_ids.unsqueeze(1)
+            if mask is None:
+                mask = torch.ones_like(relation_ids, dtype=torch.bool)
+        if mask is None:
+            mask = relation_ids >= 0
+        safe_ids = relation_ids.clone()
+        safe_ids[~mask] = 0
+        mask_float = mask.float()
+        denom = mask_float.sum(dim=1, keepdim=True).clamp(min=1.0)
+
+        phase_vals = F.softplus(self.phase_weight[safe_ids]).squeeze(-1)
+        modulus_vals = F.softplus(self.modulus_weight[safe_ids]).squeeze(-1)
+        if self.phase_freq_param is not None:
+            freq_vals = F.softplus(self.phase_freq_param[safe_ids])
+        else:
+            freq_vals = torch.ones(*safe_ids.shape, 1, device=relation_ids.device)
+
+        phase_avg = (phase_vals * mask_float).sum(dim=1, keepdim=True) / denom
+        modulus_avg = (modulus_vals * mask_float).sum(dim=1, keepdim=True) / denom
+        freq_mask = mask.unsqueeze(-1).float()
+        freq_avg = (freq_vals * freq_mask).sum(dim=1) / denom
+        return phase_avg, modulus_avg, freq_avg
+
+    def compute_phase_component(self, phase_argument, freq_weights):
+        """
+        phase_argument: [B, N, D] raw phase difference (no /2 applied yet)
+        freq_weights: [B, K]
+        """
+        if freq_weights.dim() == 1:
+            freq_weights = freq_weights.unsqueeze(1)
+        batch = phase_argument.size(0)
+        scores = 0
+        for idx in range(freq_weights.size(1)):
+            harmonic = idx + 1
+            weight = freq_weights[:, idx].view(batch, 1, 1)
+            scores = scores + weight * torch.abs(torch.sin(harmonic * phase_argument / 2))
+        return scores
         
     # def forward(self, sample, mode='single', step=None):
     #     '''
@@ -344,7 +416,7 @@ class KGEModel(nn.Module):
             batch_size, negative_sample_size = sample.size(0), 1
 
             head = torch.index_select(self.entity_embedding, dim=0, index=head_ids).unsqueeze(1)
-            relation = torch.index_select(self.relation_embedding, dim=0, index=relation_ids).unsqueeze(1)
+            relation = self._lookup_relation_embedding(relation_ids).unsqueeze(1)
             tail = torch.index_select(self.entity_embedding, dim=0, index=tail_ids).unsqueeze(1)
 
         elif mode == 'head-batch':
@@ -352,7 +424,7 @@ class KGEModel(nn.Module):
             batch_size, negative_sample_size = head_part.size(0), head_part.size(1)
 
             head = torch.index_select(self.entity_embedding, dim=0, index=head_part.view(-1)).view(batch_size, negative_sample_size, -1)
-            relation = torch.index_select(self.relation_embedding, dim=0, index=tail_part[:, 1]).unsqueeze(1)
+            relation = self._lookup_relation_embedding(tail_part[:, 1]).unsqueeze(1)
             tail = torch.index_select(self.entity_embedding, dim=0, index=tail_part[:, 2]).unsqueeze(1)
 
         elif mode == 'tail-batch':
@@ -360,7 +432,7 @@ class KGEModel(nn.Module):
             batch_size, negative_sample_size = tail_part.size(0), tail_part.size(1)
 
             head = torch.index_select(self.entity_embedding, dim=0, index=head_part[:, 0]).unsqueeze(1)
-            relation = torch.index_select(self.relation_embedding, dim=0, index=head_part[:, 1]).unsqueeze(1)
+            relation = self._lookup_relation_embedding(head_part[:, 1]).unsqueeze(1)
             tail = torch.index_select(self.entity_embedding, dim=0, index=tail_part.view(-1)).view(batch_size, negative_sample_size, -1)
 
         else:
@@ -385,6 +457,78 @@ class KGEModel(nn.Module):
 
         return score
 
+    def path_forward(self, head_ids, relation_paths, tail_ids):
+        """
+        Score multi-hop paths specified by a tensor of relation ids (padding with -1).
+        head_ids: [B]
+        relation_paths: [B, L] with -1 padding
+        tail_ids: [B] or [B, N]
+        """
+        mask = relation_paths >= 0
+        safe_ids = relation_paths.clone()
+        safe_ids[~mask] = 0
+        rel_embed = self._lookup_relation_embedding(safe_ids)
+        rel_embed = rel_embed * mask.unsqueeze(-1)
+
+        rel_modulus, rel_phase = torch.chunk(rel_embed, 2, dim=2)
+        bias_relation = torch.clamp(rel_modulus, max=1)
+        rel_modulus = torch.abs(rel_modulus)
+        indicator = (bias_relation < -rel_modulus)
+        bias_relation[indicator] = -rel_modulus[indicator]
+
+        phase_lambda, modulus_lambda, freq_weights = self.aggregate_relation_weights(safe_ids, mask=mask)
+
+        phase_path = rel_phase.sum(dim=1, keepdim=True)
+
+        ones_mod = torch.ones_like(rel_modulus)
+        a_components = torch.where(mask.unsqueeze(-1), rel_modulus + bias_relation, ones_mod)
+        b_components = torch.where(mask.unsqueeze(-1), 1 - bias_relation, ones_mod)
+        A_path = torch.prod(a_components, dim=1, keepdim=True)
+        B_path = torch.prod(b_components, dim=1, keepdim=True)
+
+        rel_width_vals = torch.index_select(
+            self.rel_width,
+            dim=0,
+            index=safe_ids.view(-1)
+        ).view(*safe_ids.shape, -1)
+        rel_width_vals = F.softplus(rel_width_vals) * mask.unsqueeze(-1).float()
+        width_denom = mask.unsqueeze(-1).float().sum(dim=1, keepdim=True).clamp(min=1.0)
+        width_path = rel_width_vals.sum(dim=1, keepdim=True) / width_denom
+
+        head = torch.index_select(self.entity_embedding, dim=0, index=head_ids).unsqueeze(1)
+        if tail_ids.dim() == 1:
+            tail = torch.index_select(self.entity_embedding, dim=0, index=tail_ids).unsqueeze(1)
+        else:
+            tail = torch.index_select(
+                self.entity_embedding,
+                dim=0,
+                index=tail_ids.view(-1)
+            ).view(tail_ids.size(0), tail_ids.size(1), -1)
+
+        tail_count = tail.size(1)
+        head_expand = head.expand(head.size(0), tail_count, -1)
+
+        phase_path_exp = phase_path.expand(head.size(0), tail_count, -1)
+        A_path_exp = A_path.expand(head.size(0), tail_count, -1)
+        B_path_exp = B_path.expand(head.size(0), tail_count, -1)
+        width_path_exp = width_path.expand(head.size(0), tail_count, -1)
+
+        head_modulus, head_phase = torch.chunk(head_expand, 2, dim=2)
+        tail_modulus, tail_phase = torch.chunk(tail, 2, dim=2)
+
+        phase_argument = head_phase + phase_path_exp - tail_phase
+        phase_component = self.compute_phase_component(phase_argument, freq_weights)
+        phase_score = phase_component.sum(dim=2, keepdim=True)
+
+        mod_dist = torch.abs(head_modulus * A_path_exp - tail_modulus * B_path_exp)
+        modulus_score = torch.sum(width_path_exp * mod_dist, dim=2, keepdim=True)
+
+        phase_scale = phase_lambda.view(-1, 1, 1)
+        mod_scale = modulus_lambda.view(-1, 1, 1)
+        phase_score = phase_score * phase_scale
+        modulus_score = modulus_score * mod_scale
+
+        return self.gamma.item() - (phase_score + modulus_score)
     
     def TransE(self, head, relation, tail, mode):
         if mode == 'head-batch':
@@ -477,6 +621,7 @@ class KGEModel(nn.Module):
         assert tail_ids is not None, "Tail entity IDs must be passed to RelatE."
         assert relation_ids is not None, "Relation IDs must be passed to RelatE."
 
+        phase_lambda, modulus_lambda, freq_weights = self.aggregate_relation_weights(relation_ids)
         # Split embeddings
         head_modulus, head_phase = torch.chunk(head, 2, dim=2)
         rel_modulus, rel_phase = torch.chunk(relation, 2, dim=2)
@@ -498,7 +643,9 @@ class KGEModel(nn.Module):
 
         # Compute scores
         if mode == 'head-batch':
-            phase_score = torch.abs(torch.sin((tail_phase - rel_phase - head_phase) / 2)).sum(dim=2, keepdim=True)
+            phase_argument = tail_phase - rel_phase - head_phase
+            phase_component = self.compute_phase_component(phase_argument, freq_weights)
+            phase_score = phase_component.sum(dim=2, keepdim=True)
             # modulus_score = torch.norm(tail_modulus * (1 - bias_relation) - head_modulus * (rel_modulus + bias_relation), p=2, dim=2, keepdim=True)
             # Assuming self.rel_width is a learnable parameter of shape [nrelation, dim] initialized in __init__:
             # self.rel_width = nn.Parameter(torch.ones(nrelation, embedding_dim // 2))
@@ -520,7 +667,9 @@ class KGEModel(nn.Module):
 
 
         elif mode == 'tail-batch':
-            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2, keepdim=True)
+            phase_argument = head_phase + rel_phase - tail_phase
+            phase_component = self.compute_phase_component(phase_argument, freq_weights)
+            phase_score = phase_component.sum(dim=2, keepdim=True)
             # modulus_score = torch.norm(head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation), p=2, dim=2, keepdim=True)
 
             # Tail-batch
@@ -538,7 +687,9 @@ class KGEModel(nn.Module):
 
 
         else:  # default
-            phase_score = torch.abs(torch.sin((head_phase + rel_phase - tail_phase) / 2)).sum(dim=2, keepdim=True)
+            phase_argument = head_phase + rel_phase - tail_phase
+            phase_component = self.compute_phase_component(phase_argument, freq_weights)
+            phase_score = phase_component.sum(dim=2, keepdim=True)
             # modulus_score = torch.norm(head_modulus * (rel_modulus + bias_relation) - tail_modulus * (1 - bias_relation), p=2, dim=2, keepdim=True)
 
             # Rest
@@ -561,8 +712,8 @@ class KGEModel(nn.Module):
 
 
         # Apply weighting
-        phase_score = phase_score * phase_w
-        modulus_score = modulus_score * modulus_w
+        phase_score = phase_score * phase_lambda.view(-1, 1, 1)
+        modulus_score = modulus_score * modulus_lambda.view(-1, 1, 1)
 
         # Base score calculation
         base_score = self.gamma.item() - (modulus_score + phase_score)
@@ -713,10 +864,11 @@ class KGEModel(nn.Module):
 
     
     @staticmethod
-    def train_step(model, optimizer, train_iterator, args,step):
+    def train_step(model, optimizer, train_iterator, args,step, path_batch=None, path_weight=0.0, consistency_weight=0.0):
         '''
         A single train step. Apply back-propation and return the loss
         '''
+        base_model = model.module if hasattr(model, 'module') else model
         model.current_step = step
         model.train()
 
@@ -751,8 +903,23 @@ class KGEModel(nn.Module):
 
         positive_score = model(positive_sample)
 
-        # positive_score = F.logsigmoid(positive_score).squeeze(dim = 1)
-        positive_score = F.logsigmoid(positive_score).squeeze()
+        positive_score = F.logsigmoid(positive_score)
+        subsampling_weight = subsampling_weight.view(-1)
+
+        flat_positive = positive_score.reshape(-1)
+        target_len = subsampling_weight.shape[0]
+        if target_len > 0 and flat_positive.numel() % target_len == 0:
+            positive_score = flat_positive.view(target_len, -1).mean(dim=1)
+        else:
+            if flat_positive.shape[0] != target_len:
+                logging.warning(
+                    'Positive score and subsampling weight have different lengths (%d vs %d). Adjusting to match.',
+                    flat_positive.shape[0],
+                    target_len
+                )
+            min_len = min(flat_positive.shape[0], target_len)
+            positive_score = flat_positive[:min_len]
+            subsampling_weight = subsampling_weight[:min_len]
 
 
 
@@ -782,6 +949,35 @@ class KGEModel(nn.Module):
 
 
         loss = (positive_sample_loss + negative_sample_loss)/2
+
+        path_logs = {}
+        if path_batch is not None and path_weight > 0:
+            path_heads, path_relations, path_lengths, path_tails, negative_tails = path_batch
+            if args.cuda:
+                path_heads = path_heads.cuda()
+                path_relations = path_relations.cuda()
+                path_lengths = path_lengths.cuda()
+                path_tails = path_tails.cuda()
+                negative_tails = negative_tails.cuda()
+            pos_scores = base_model.path_forward(path_heads, path_relations, path_tails).view(path_heads.size(0), 1)
+            neg_scores = base_model.path_forward(path_heads, path_relations, negative_tails).view(path_heads.size(0), -1)
+            margin = getattr(args, 'path_margin', args.gamma)
+            path_loss_tensor = F.relu(neg_scores - pos_scores + margin)
+            path_loss_val = path_loss_tensor.mean()
+            loss = loss + path_weight * path_loss_val
+
+            path_logs['path_loss'] = path_loss_val.item()
+
+            if consistency_weight > 0:
+                last_indices = (path_lengths - 1).clamp(min=0)
+                last_rel = path_relations.gather(1, last_indices.unsqueeze(1)).squeeze(1)
+                composed_sample = torch.stack([path_heads, last_rel, path_tails], dim=1)
+                single_score = model(composed_sample, mode='single').view(path_heads.size(0), 1)
+                consistency_margin = getattr(args, 'path_consistency_margin', 1.0)
+                consistency_term = F.relu(single_score - pos_scores + consistency_margin)
+                consistency_loss = consistency_term.mean()
+                loss = loss + consistency_weight * consistency_loss
+                path_logs['consistency_loss'] = consistency_loss.item()
 
         # Apply L3 regularization
         
@@ -813,11 +1009,11 @@ class KGEModel(nn.Module):
         
         if args.regularization != 0.0:
             # Directly use the already-doubled embeddings
-            reg_entity = torch.sum(torch.abs(model.entity_embedding) ** 3)
-            reg_relation = torch.sum(torch.abs(model.relation_embedding) ** 3)
+            reg_entity = torch.sum(torch.abs(base_model.entity_embedding) ** 3)
+            reg_relation = torch.sum(torch.abs(base_model.relation_embedding) ** 3)
 
             # Normalize by total number of entities and relations
-            reg = (reg_entity / model.nentity) + (reg_relation / model.nrelation)
+            reg = (reg_entity / base_model.nentity) + (reg_relation / base_model.nrelation)
 
             # Add to loss
             loss = loss + args.regularization * reg
@@ -841,12 +1037,17 @@ class KGEModel(nn.Module):
             'negative_sample_loss': negative_sample_loss.item(),
             'loss': loss.item()
         }
+        if path_logs:
+            log.update(path_logs)
 
         # print modulus and phase weights every 1000 steps
-        if model.model_name == 'RelatE':
+        if base_model.model_name == 'RelatE':
             if step % 1000 == 0:
-                # logging.info(f"Phase Weight: {F.softplus(model.phase_weight).item():.4f}, Modulus Weight: {F.softplus(model.modulus_weight).item():.4f}")
-                logging.info(f"Phase Weight (avg): {F.softplus(model.phase_weight).mean().item():.4f}, Modulus Weight (avg): {F.softplus(model.modulus_weight).mean().item():.4f}")
+                logging.info(
+                    "Phase Weight (avg): %.4f, Modulus Weight (avg): %.4f",
+                    F.softplus(base_model.phase_weight).mean().item(),
+                    F.softplus(base_model.modulus_weight).mean().item()
+                )
 
 
 
