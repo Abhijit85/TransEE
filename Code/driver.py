@@ -78,7 +78,7 @@ def parse_args(args=None):
     parser.add_argument('--stop_at_first_peak', action='store_true',
                         help='Stop training once validation MRR falls below its best value')
     parser.add_argument('--early_stop_patience', type=int, default=None,
-                        help='Number of consecutive non-improving validations before stopping')
+                        help='Number of consecutive non-improving validations before stopping (default: 5)')
     parser.add_argument('--early_stop_min_delta', type=float, default=0.0,
                         help='Minimum MRR improvement required to reset patience')
     parser.add_argument('-cpu', '--cpu_num', default=10, type=int)
@@ -130,6 +130,10 @@ def parse_args(args=None):
     env_model = os.getenv('MODEL_NAME')
     if env_model and parsed_args.model == default_model:
         parsed_args.model = env_model
+
+    env_patience = os.getenv('EARLY_STOP_PATIENCE')
+    if parsed_args.early_stop_patience is None:
+        parsed_args.early_stop_patience = int(env_patience) if env_patience else 5
 
     return parsed_args
 

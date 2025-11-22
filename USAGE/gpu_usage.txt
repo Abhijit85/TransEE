@@ -1,0 +1,36 @@
+==== GPU Usage by User ====
+
+GPU 0: [0;31mBUSY[0m (Util: 0%, Mem: 140656/143771 MiB, 97%)
+   Users:
+   - xiaoye2: python code/influence_server.py --model-path /mnt/shared/xiao/models--Qwen--Qwen
+   - xiaoye2: /mnt/arc/xiao/conda/envs/verl/bin/python -c from multiprocessing.spawn import sp
+
+GPU 1: [0;31mBUSY[0m (Util: 39%, Mem: 118971/143771 MiB, 82%)
+   Users:
+   - xiaoye2: ray::WorkerDict.actor_rollout_generate_sequences
+
+GPU 2: [0;31mBUSY[0m (Util: 65%, Mem: 79463/143771 MiB, 55%)
+   Users:
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
+
+GPU 3: [0;31mBUSY[0m (Util: 0%, Mem: 78767/143771 MiB, 54%)
+   Users:
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
+
+GPU 4: [0;31mBUSY[0m (Util: 67%, Mem: 97665/143771 MiB, 67%)
+   Users:
+   - eunwooim: python eval/mmhalbench.py --model-id qwen3vl_32b --image-folder /mnt/shared/eunw
+
+GPU 5: [0;31mBUSY[0m (Util: 73%, Mem: 125876/143771 MiB, 87%)
+   Users:
+   - eunwooim: python eval/mmvet.py --model-id qwen3vl_32b --image-folder /mnt/shared/eunwooim/
+   - eunwooim: python eval/mmvet.py --model-id qwen3vl_8b --image-folder /mnt/shared/eunwooim/s
+
+GPU 6: [0;31mBUSY[0m (Util: 12%, Mem: 78655/143771 MiB, 54%)
+   Users:
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
+
+GPU 7: [0;31mBUSY[0m (Util: 100%, Mem: 118521/143771 MiB, 82%)
+   Users:
+   - hillaryl: /mnt/arc/hillary/miniconda3/envs/coconut/bin/python3.10 -u run.py args/gsm_cot.y
+
