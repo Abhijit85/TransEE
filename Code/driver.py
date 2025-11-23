@@ -14,7 +14,6 @@ from collections import defaultdict
 
 import numpy as np
 import torch
-
 from dotenv import load_dotenv
 
 from torch.utils.data import DataLoader
@@ -82,6 +81,8 @@ def parse_args(args=None):
     parser.add_argument('--early_stop_min_delta', type=float, default=0.0,
                         help='Minimum MRR improvement required to reset patience')
     parser.add_argument('-cpu', '--cpu_num', default=10, type=int)
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
+                        help='Number of micro-steps to accumulate before an optimizer update')
     parser.add_argument('-init', '--init_checkpoint', default=None, type=str)
     parser.add_argument('-save', '--save_path', default=None, type=str)
     parser.add_argument('--max_steps', default=100000, type=int)
@@ -134,6 +135,12 @@ def parse_args(args=None):
     env_patience = os.getenv('EARLY_STOP_PATIENCE')
     if parsed_args.early_stop_patience is None:
         parsed_args.early_stop_patience = int(env_patience) if env_patience else 5
+
+    env_accum = os.getenv('GRADIENT_ACCUMULATION_STEPS')
+    if env_accum and parsed_args.gradient_accumulation_steps == 1:
+        parsed_args.gradient_accumulation_steps = int(env_accum)
+    if parsed_args.gradient_accumulation_steps < 1:
+        parsed_args.gradient_accumulation_steps = 1
 
     return parsed_args
 
@@ -494,19 +501,25 @@ def main(args):
             path_iterator = BidirectionalOneShotIterator.one_shot_iterator(path_dataloader)
 
     if args.do_train:
+        train_samplers = []
+        train_dataset_head = TrainDataset(train_triples, nentity, nrelation, args.negative_sample_size, 'head-batch')
+        train_dataset_tail = TrainDataset(train_triples, nentity, nrelation, args.negative_sample_size, 'tail-batch')
+        train_sampler_head = None
+        train_sampler_tail = None
+
         # Set training dataloader iterator
         train_dataloader_head = DataLoader(
-            TrainDataset(train_triples, nentity, nrelation, args.negative_sample_size, 'head-batch'), 
+            train_dataset_head,
             batch_size=args.batch_size,
-            shuffle=True, 
+            shuffle=True,
             num_workers=max(1, args.cpu_num//2),
             collate_fn=TrainDataset.collate_fn
         )
         
         train_dataloader_tail = DataLoader(
-            TrainDataset(train_triples, nentity, nrelation, args.negative_sample_size, 'tail-batch'), 
+            train_dataset_tail,
             batch_size=args.batch_size,
-            shuffle=True, 
+            shuffle=True,
             num_workers=max(1, args.cpu_num//2),
             collate_fn=TrainDataset.collate_fn
         )
@@ -574,26 +587,37 @@ def main(args):
 
         training_logs = []
         
+        grad_steps = max(1, args.gradient_accumulation_steps)
         #Training Loop
         stop_training = False
         for step in range(init_step, args.max_steps):
-            path_batch = None
-            path_weight = args.path_loss_weight
-            if path_iterator and should_enable_path_loss(step, args):
-                path_batch = next(path_iterator)
-            else:
-                path_weight = 0.0
-            
-            log = KGEModel.train_step(
-                kge_model,
-                optimizer,
-                train_iterator,
-                args,
-                step=step,
-                path_batch=path_batch,
-                path_weight=path_weight,
-                consistency_weight=args.path_consistency_weight
-            )
+            micro_logs = []
+            for accum_idx in range(grad_steps):
+                path_batch = None
+                path_weight = args.path_loss_weight
+                if path_iterator and should_enable_path_loss(step, args):
+                    path_batch = next(path_iterator)
+                else:
+                    path_weight = 0.0
+
+                micro_log = KGEModel.train_step(
+                    kge_model,
+                    optimizer,
+                    train_iterator,
+                    args,
+                    step=step,
+                    path_batch=path_batch,
+                    path_weight=path_weight,
+                    consistency_weight=args.path_consistency_weight,
+                    zero_grad=(accum_idx == 0),
+                    optimizer_step=(accum_idx == grad_steps - 1),
+                    accumulation_steps=grad_steps
+                )
+                micro_logs.append(micro_log)
+
+            log = {}
+            for key in micro_logs[0].keys():
+                log[key] = sum(m[key] for m in micro_logs) / len(micro_logs)
 
             scheduler.step()   # Smooth cosine update
             current_learning_rate = optimizer.param_groups[0]['lr']
@@ -684,30 +708,13 @@ def main(args):
                 
             if args.do_valid and step % args.valid_steps == 0:
                 logging.info('Evaluating on Valid Dataset...')
-                # metrics = kge_model.test_step(kge_model, valid_triples, all_true_triples, args)
-                # log_metrics('Valid', step, metrics)
-
                 metrics = KGEModel.test_step(kge_model, valid_triples, all_true_triples, args)
                 log_metrics('Valid', step, metrics)
 
-                # Save only if MRR improves
-                # if metrics['MRR'] > best_val_mrr:
-                #     best_val_mrr = metrics['MRR']
-                #     best_step = step
-                #     logging.info(f'New best model at step {step}, MRR: {best_val_mrr:.4f}')
-                    
-                #     save_variable_list = {
-                #         'step': step,
-                #         'current_learning_rate': current_learning_rate,
-                #         'warm_up_steps': warm_up_steps
-                #     }
-                #     save_model(kge_model, optimizer, save_variable_list, args)
-
                 improved = metrics['MRR'] > (best_val_mrr + args.early_stop_min_delta)
                 if improved:
-                    if step != best_step:  # only log if it's a new best step
-                        logging.info(f'New best model at step {step}, MRR: {metrics['MRR']:.4f}')
-                    
+                    if step != best_step:
+                        logging.info(f'New best model at step {step}, MRR: {metrics["MRR"]:.4f}')
                     best_val_mrr = metrics['MRR']
                     best_step = step
                     patience_counter = 0
@@ -780,6 +787,5 @@ def main(args):
         logging.info('Evaluating on Training Dataset...')
         metrics = KGEModel.test_step(kge_model, train_triples, all_true_triples, args)
         log_metrics('Test', step, metrics)
-        
 if __name__ == '__main__':
     main(parse_args())

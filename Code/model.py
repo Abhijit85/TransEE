@@ -864,7 +864,9 @@ class KGEModel(nn.Module):
 
     
     @staticmethod
-    def train_step(model, optimizer, train_iterator, args,step, path_batch=None, path_weight=0.0, consistency_weight=0.0):
+    def train_step(model, optimizer, train_iterator, args, step, path_batch=None,
+                   path_weight=0.0, consistency_weight=0.0, zero_grad=True,
+                   optimizer_step=True, accumulation_steps=1):
         '''
         A single train step. Apply back-propation and return the loss
         '''
@@ -872,7 +874,8 @@ class KGEModel(nn.Module):
         model.current_step = step
         model.train()
 
-        optimizer.zero_grad()
+        if zero_grad:
+            optimizer.zero_grad()
 
         positive_sample, negative_sample, subsampling_weight, mode = next(train_iterator)
 
@@ -1027,9 +1030,11 @@ class KGEModel(nn.Module):
 
 
 
+        loss = loss / max(1, accumulation_steps)
         loss.backward()
 
-        optimizer.step()
+        if optimizer_step:
+            optimizer.step()
 
         log = {
             **regularization_log,
@@ -1158,6 +1163,7 @@ class KGEModel(nn.Module):
                                 'HITS@1': 1.0 if ranking <= 1 else 0.0,
                                 'HITS@3': 1.0 if ranking <= 3 else 0.0,
                                 'HITS@10': 1.0 if ranking <= 10 else 0.0,
+                                'HITS@20': 1.0 if ranking <= 20 else 0.0,
                             })
 
                         if step % args.test_log_steps == 0:

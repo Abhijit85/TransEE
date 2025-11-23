@@ -4,6 +4,7 @@
 import argparse
 import csv
 import gzip
+import json
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -65,6 +66,36 @@ def write_dict_file(path: Path, values: List[str]) -> None:
             fout.write(f"{idx}\t{name}\n")
 
 
+def write_type_map(path: Path, values: List[str]) -> None:
+    type_map = {}
+    for name in values:
+        if ":" in name:
+            prefix, _ = name.split(":", 1)
+        else:
+            prefix = "entity"
+        type_map[name] = prefix
+    with path.open("w") as fout:
+        json.dump(type_map, fout)
+
+
+def build_inverse_map(triplet_type_file: Path) -> Dict[str, str]:
+    inverse = {}
+    with gzip.open(triplet_type_file, "rt") as fin:
+        reader = csv.reader(fin)
+        next(reader, None)
+        for row in reader:
+            if len(row) < 3:
+                continue
+            head_type, rel_name, tail_type = [c.strip() for c in row[:3]]
+            inverse[rel_name] = f"{tail_type}-{head_type}"
+    return inverse
+
+
+def write_inverse_map(path: Path, mapping: Dict[str, str]) -> None:
+    with path.open("w") as fout:
+        json.dump(mapping, fout)
+
+
 def convert_split(
     split_path: Path,
     out_path: Path,
@@ -120,11 +151,14 @@ def main() -> None:
         mapping_dir, raw_dir / "num-node-dict.csv.gz"
     )
     rel_names = load_relation_names(mapping_dir / "relidx2relname.csv.gz")
+    inverse_map = build_inverse_map(raw_dir / "triplet-type-list.csv.gz")
 
     out_dir = Path(args.out_path)
     out_dir.mkdir(parents=True, exist_ok=True)
     write_dict_file(out_dir / "entities.dict", entity_names)
     write_dict_file(out_dir / "relations.dict", rel_names)
+    write_type_map(out_dir / "entity_type_map.json", entity_names)
+    write_inverse_map(out_dir / "relation_inverse_map.json", inverse_map)
 
     for part in ("train", "valid", "test"):
         split_file = split_dir / f"{part}.pt"

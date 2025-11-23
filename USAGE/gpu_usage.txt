@@ -1,34 +1,36 @@
 ==== GPU Usage by User ====
 
-GPU 0: [0;31mBUSY[0m (Util: 0%, Mem: 140656/143771 MiB, 97%)
+GPU 0: [0;31mBUSY[0m (Util: 46%, Mem: 140656/143771 MiB, 97%)
    Users:
    - xiaoye2: python code/influence_server.py --model-path /mnt/shared/xiao/models--Qwen--Qwen
    - xiaoye2: /mnt/arc/xiao/conda/envs/verl/bin/python -c from multiprocessing.spawn import sp
 
-GPU 1: [0;32mFREE[0m (Util: 0%, Mem: 17/143771 MiB, 0%)
-
-GPU 2: [0;31mBUSY[0m (Util: 61%, Mem: 84931/143771 MiB, 59%)
+GPU 1: [0;31mBUSY[0m (Util: 87%, Mem: 123525/143771 MiB, 85%)
    Users:
    - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
 
-GPU 3: [0;31mBUSY[0m (Util: 60%, Mem: 78767/143771 MiB, 54%)
+GPU 2: [0;31mBUSY[0m (Util: 97%, Mem: 117699/143771 MiB, 81%)
    Users:
    - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
 
-GPU 4: [0;31mBUSY[0m (Util: 68%, Mem: 97603/143771 MiB, 67%)
+GPU 3: [0;31mBUSY[0m (Util: 99%, Mem: 117699/143771 MiB, 81%)
    Users:
-   - eunwooim: python eval/mmhalbench.py --model-id qwen3vl_32b --image-folder /mnt/shared/eunw
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
 
-GPU 5: [0;31mBUSY[0m (Util: 100%, Mem: 116168/143771 MiB, 80%)
+GPU 4: [0;31mBUSY[0m (Util: 86%, Mem: 117699/143771 MiB, 81%)
    Users:
-   - eunwooim: python eval/mmvet.py --model-id qwen3vl_8b --image-folder /mnt/shared/eunwooim/s
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
+
+GPU 5: [0;31mBUSY[0m (Util: 100%, Mem: 125288/143771 MiB, 87%)
+   Users:
    - eunwooim: python eval/mmvet.py --model-id qwen3vl_32b --image-folder /mnt/shared/eunwooim/
+   - eunwooim: python eval/mmvet.py --model-id qwen3vl_8b --image-folder /mnt/shared/eunwooim/s
 
-GPU 6: [0;31mBUSY[0m (Util: 44%, Mem: 78655/143771 MiB, 54%)
+GPU 6: [0;31mBUSY[0m (Util: 0%, Mem: 115893/143771 MiB, 80%)
    Users:
-   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
+   - nahuja11: VLLM::EngineCore
 
-GPU 7: [0;31mBUSY[0m (Util: 100%, Mem: 118521/143771 MiB, 82%)
+GPU 7: [0;33mIN USE[0m (Util: 0%, Mem: 60091/143771 MiB, 41%)
    Users:
-   - hillaryl: /mnt/arc/hillary/miniconda3/envs/coconut/bin/python3.10 -u run.py args/gsm_cot.y
+   - xiaoye2: ray::WorkerDict
 

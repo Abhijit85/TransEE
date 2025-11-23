@@ -68,18 +68,19 @@ if [ -n "$DATASET" ]; then
             if [ -z "${TYPE_MAP_PATH+x}" ]; then TYPE_MAP_PATH="./yago3_entity_type_map.json"; fi
             if [ -z "${TYPE_LAMBDA+x}" ]; then TYPE_LAMBDA=0.15; fi
             ;;
-        ogbl-biokg|ogbl_biokg|biokg)
-            if [ -z "${DATA_PATH+x}" ]; then DATA_PATH="./data/ogb/ogbl_biokg_kge"; fi
-            if [ -z "${SAVE_ID+x}" ]; then SAVE_ID="ogblbiokg_rel"; fi
-            if [ -z "${BATCH_SIZE+x}" ]; then BATCH_SIZE=2048; fi
-            if [ -z "${NEGATIVE_SAMPLE_SIZE+x}" ]; then NEGATIVE_SAMPLE_SIZE=2048; fi
-            if [ -z "${HIDDEN_DIM+x}" ]; then HIDDEN_DIM=1024; fi
-            if [ -z "${GAMMA+x}" ]; then GAMMA=12; fi
-            if [ -z "${ALPHA+x}" ]; then ALPHA=1.2; fi
-            if [ -z "${LEARNING_RATE+x}" ]; then LEARNING_RATE=1e-4; fi
-            if [ -z "${TYPE_MAP_PATH+x}" ]; then TYPE_MAP_PATH=""; fi
-            if [ -z "${TYPE_LAMBDA+x}" ]; then TYPE_LAMBDA=0.1; fi
-            ;;
+    ogbl-biokg|ogbl_biokg|biokg)
+        if [ -z "${DATA_PATH+x}" ]; then DATA_PATH="./data/ogb/ogbl_biokg_kge"; fi
+        if [ -z "${SAVE_ID+x}" ]; then SAVE_ID="ogblbiokg_rel"; fi
+        if [ -z "${BATCH_SIZE+x}" ]; then BATCH_SIZE=4096; fi
+        if [ -z "${NEGATIVE_SAMPLE_SIZE+x}" ]; then NEGATIVE_SAMPLE_SIZE=4096; fi
+        if [ -z "${HIDDEN_DIM+x}" ]; then HIDDEN_DIM=2048; fi
+        if [ -z "${GAMMA+x}" ]; then GAMMA=12; fi
+        if [ -z "${ALPHA+x}" ]; then ALPHA=1.2; fi
+        if [ -z "${LEARNING_RATE+x}" ]; then LEARNING_RATE=1e-4; fi
+        if [ -z "${TYPE_MAP_PATH+x}" ]; then TYPE_MAP_PATH="./data/ogb/ogbl_biokg_kge/entity_type_map.json"; fi
+        if [ -z "${TYPE_LAMBDA+x}" ]; then TYPE_LAMBDA=0.1; fi
+        if [ -z "${INVERSE_MAP_PATH+x}" ]; then INVERSE_MAP_PATH="./data/ogb/ogbl_biokg_kge/relation_inverse_map.json"; fi
+        ;;
         *)
             echo "[run.sh] DATASET_NAME='$DATASET' not recognized. Supported presets: FB15k-237, WN18RR, YAGO3-10, ogbl-biokg." >&2
             ;;
@@ -93,6 +94,9 @@ if [ -n "$GPU_DEVICE_ARG" ]; then
 else
     GPU_DEVICE=${GPU_DEVICE:-0}
 fi
+
+PYTHON_LAUNCHER=(python3 -u)
+DISTRIBUTED_FLAG=()
 
 # Optional model/training flags from environment
 MODEL_FLAG_ARGS=()
@@ -138,10 +142,50 @@ ENV_SAVE_STEPS=${SAVE_CHECKPOINT_STEPS:-}
 ENV_LOG_STEPS=${LOG_STEPS:-}
 ENV_TEST_LOG_STEPS=${TEST_LOG_STEPS:-}
 
+OPTIONAL_ARGS=()
+if [ -n "${TYPE_MAP_PATH:-}" ]; then
+    OPTIONAL_ARGS+=(--type_map_path "$TYPE_MAP_PATH")
+fi
+if [ -n "${TYPE_LAMBDA:-}" ]; then
+    OPTIONAL_ARGS+=(--type_lambda "$TYPE_LAMBDA")
+fi
+if [ -n "${INVERSE_MAP_PATH:-}" ]; then
+    OPTIONAL_ARGS+=(--inverse_map_path "$INVERSE_MAP_PATH")
+fi
+if [ -n "${PATH_LOSS_WEIGHT:-}" ]; then
+    OPTIONAL_ARGS+=(--path_loss_weight "$PATH_LOSS_WEIGHT")
+fi
+if [ -n "${PATH_BATCH_SIZE:-}" ] && [ "${PATH_BATCH_SIZE}" -gt 0 ]; then
+    OPTIONAL_ARGS+=(--path_batch_size "$PATH_BATCH_SIZE")
+fi
+if [ -n "${PATH_NEGATIVE_SIZE:-}" ] && [ "${PATH_NEGATIVE_SIZE}" -gt 0 ]; then
+    OPTIONAL_ARGS+=(--path_negative_size "$PATH_NEGATIVE_SIZE")
+fi
+if [ -n "${PATH_HOPS:-}" ]; then
+    read -ra PATH_HOPS_ARR <<< "$PATH_HOPS"
+    OPTIONAL_ARGS+=(--path_hops "${PATH_HOPS_ARR[@]}")
+fi
+if [ -n "${PATH_MAX_PER_HOP:-}" ] && [ "${PATH_MAX_PER_HOP}" -gt 0 ]; then
+    OPTIONAL_ARGS+=(--path_max_per_hop "$PATH_MAX_PER_HOP")
+fi
+if [ -n "${PATH_CONSISTENCY_WEIGHT:-}" ] && [ "$(printf '%.6f' "${PATH_CONSISTENCY_WEIGHT}")" != "0.000000" ]; then
+    OPTIONAL_ARGS+=(--path_consistency_weight "$PATH_CONSISTENCY_WEIGHT")
+fi
+if [ -n "${PATH_MARGIN:-}" ] && [ "$(printf '%.6f' "${PATH_MARGIN}")" != "0.000000" ]; then
+    OPTIONAL_ARGS+=(--path_margin "$PATH_MARGIN")
+fi
+if [ -n "${PATH_CONSISTENCY_MARGIN:-}" ] && [ "$(printf '%.6f' "${PATH_CONSISTENCY_MARGIN}")" != "0.000000" ]; then
+    OPTIONAL_ARGS+=(--path_consistency_margin "$PATH_CONSISTENCY_MARGIN")
+fi
+if [ -n "${PATH_CURRICULUM_STEPS:-}" ]; then
+    read -ra PATH_CURR_ARR <<< "$PATH_CURRICULUM_STEPS"
+    OPTIONAL_ARGS+=(--path_curriculum_steps "${PATH_CURR_ARR[@]}")
+fi
+
 if [ $MODE == "train" ]
 then
     echo "Start Training......"
-    CUDA_VISIBLE_DEVICES=$GPU_DEVICE python3 -u $CODE_PATH/driver.py --do_train \
+    CUDA_VISIBLE_DEVICES=$GPU_DEVICE "${PYTHON_LAUNCHER[@]}" $CODE_PATH/driver.py --do_train \
         --cuda \
         --do_valid \
         --do_test \
@@ -152,6 +196,7 @@ then
         -g $GAMMA -a $ALPHA "${ADV_FLAG[@]}" \
         -lr $LEARNING_RATE --max_steps $MAX_STEPS \
         -save $SAVE --test_batch_size $TEST_BATCH_SIZE \
+        "${OPTIONAL_ARGS[@]}" \
         ${ENV_VALID_STEPS:+--valid_steps $ENV_VALID_STEPS} \
         ${ENV_SAVE_STEPS:+--save_checkpoint_steps $ENV_SAVE_STEPS} \
         ${ENV_LOG_STEPS:+--log_steps $ENV_LOG_STEPS} \
