@@ -108,6 +108,8 @@ def parse_args(args=None):
     parser.add_argument('--type_map_path', type=str, default=None, help='Path to entity-type map JSON file')
     parser.add_argument('--type_lambda', type=float, default=1.0,help='Scaling factor for type bias injection (default 1.0)')
     parser.add_argument('--init_rel_width', type=float, default=0.1,help='Initial value for relation-specific slope (default: 0.1)')
+    parser.add_argument('--modulus_sharpness', type=float, default=1.0, help='Exponent on modulus distance to sharpen scores (>1 increases top-rank separation)')
+    parser.add_argument('--phase_sharpness', type=float, default=1.0, help='Exponent on phase component to sharpen scores (>1 increases top-rank separation)')
 
     # Multi-hop / phase extensions
     parser.add_argument('--path_loss_weight', type=float, default=0.0, help='Weight of multi-hop path ranking loss')
@@ -141,6 +143,14 @@ def parse_args(args=None):
         parsed_args.gradient_accumulation_steps = int(env_accum)
     if parsed_args.gradient_accumulation_steps < 1:
         parsed_args.gradient_accumulation_steps = 1
+
+    # Optional sharpening from environment
+    env_mod_sharp = os.getenv('MODULUS_SHARPNESS')
+    env_phase_sharp = os.getenv('PHASE_SHARPNESS')
+    if env_mod_sharp and parsed_args.modulus_sharpness == 1.0:
+        parsed_args.modulus_sharpness = float(env_mod_sharp)
+    if env_phase_sharp and parsed_args.phase_sharpness == 1.0:
+        parsed_args.phase_sharpness = float(env_phase_sharp)
 
     return parsed_args
 
@@ -455,7 +465,9 @@ def main(args):
         entity2id=entity2id, 
         init_modulus_weight=args.init_modulus_weight,
         init_rel_width=args.init_rel_width,
-        phase_harmonics=args.phase_harmonics
+        phase_harmonics=args.phase_harmonics,
+        modulus_sharpness=args.modulus_sharpness,
+        phase_sharpness=args.phase_sharpness
 
     )
     

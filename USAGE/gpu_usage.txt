@@ -1,27 +1,31 @@
 ==== GPU Usage by User ====
 
-GPU 0: [0;31mBUSY[0m (Util: 72%, Mem: 140656/143771 MiB, 97%)
+GPU 0: [0;31mBUSY[0m (Util: 0%, Mem: 140656/143771 MiB, 97%)
    Users:
    - xiaoye2: python code/influence_server.py --model-path /mnt/shared/xiao/models--Qwen--Qwen
    - xiaoye2: /mnt/arc/xiao/conda/envs/verl/bin/python -c from multiprocessing.spawn import sp
 
-GPU 1: [0;32mFREE[0m (Util: 0%, Mem: 14/143771 MiB, 0%)
-
-GPU 2: [0;32mFREE[0m (Util: 0%, Mem: 14/143771 MiB, 0%)
-
-GPU 3: [0;32mFREE[0m (Util: 0%, Mem: 14/143771 MiB, 0%)
-
-GPU 4: [0;31mBUSY[0m (Util: 56%, Mem: 69969/143771 MiB, 48%)
+GPU 1: [0;31mBUSY[0m (Util: 71%, Mem: 64853/143771 MiB, 45%)
    Users:
-   - dmadhwal: python generate_answers/run_frames_regimes.py --config generate_answers/experime
+   - mjojic: python masking_patch_search.py --start_idx 6 --end_idx 10 --device cuda:1 --max_
 
-GPU 5: [0;32mFREE[0m (Util: 0%, Mem: 14/143771 MiB, 0%)
-
-GPU 6: [0;31mBUSY[0m (Util: 58%, Mem: 69939/143771 MiB, 48%)
+GPU 2: [0;31mBUSY[0m (Util: 70%, Mem: 43869/143771 MiB, 30%)
    Users:
-   - dmadhwal: python generate_answers/run_frames_regimes.py --config generate_answers/experime
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
 
-GPU 7: [0;33mIN USE[0m (Util: 0%, Mem: 60181/143771 MiB, 41%)
+GPU 3: [0;31mBUSY[0m (Util: 66%, Mem: 34623/143771 MiB, 24%)
    Users:
-   - xiaoye2: ray::WorkerDict
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
+
+GPU 4: [0;32mFREE[0m (Util: 0%, Mem: 17/143771 MiB, 0%)
+
+GPU 5: [0;31mBUSY[0m (Util: 68%, Mem: 34623/143771 MiB, 24%)
+   Users:
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
+
+GPU 6: [0;31mBUSY[0m (Util: 63%, Mem: 34623/143771 MiB, 24%)
+   Users:
+   - achakr40: python3 -u Code/driver.py --do_train --cuda --do_valid --do_test --data_path ./d
+
+GPU 7: [0;32mFREE[0m (Util: 0%, Mem: 17/143771 MiB, 0%)
 
