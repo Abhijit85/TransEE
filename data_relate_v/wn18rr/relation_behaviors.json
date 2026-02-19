@@ -1,0 +1,36 @@
+{
+  "symmetric": [
+    "_similar_to",
+    "_verb_group"
+  ],
+  "antisymmetric": [
+    "_hypernym",
+    "_instance_hypernym",
+    "_has_part",
+    "_member_meronym",
+    "_member_of_domain_region",
+    "_member_of_domain_usage",
+    "_synset_domain_topic_of"
+  ],
+  "inverse_pairs": [],
+  "hierarchical": [
+    "_hypernym",
+    "_instance_hypernym"
+  ],
+  "meronymic": [
+    "_has_part",
+    "_member_meronym"
+  ],
+  "compositions": [
+    [
+      "_hypernym",
+      "_hypernym",
+      "_hypernym"
+    ],
+    [
+      "_instance_hypernym",
+      "_instance_hypernym",
+      "_instance_hypernym"
+    ]
+  ]
+}

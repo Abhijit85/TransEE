@@ -1,0 +1,2 @@
+data_relate_v/YAGO3-10/train.txt.json filter=lfs diff=lfs merge=lfs -text
+data_relate_v/wn18rr/plm_entity.npy filter=lfs diff=lfs merge=lfs -text
