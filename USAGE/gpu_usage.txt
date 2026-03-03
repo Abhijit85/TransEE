@@ -1,0 +1,33 @@
+==== GPU Usage by User ====
+
+GPU 0: [0;31mBUSY[0m (Util: 0%, Mem: 137232/143771 MiB, 95%)
+   Users:
+   - knguy139: VLLM::EngineCore
+
+GPU 1: [0;31mBUSY[0m (Util: 100%, Mem: 116013/143771 MiB, 80%)
+   Users:
+   - shijielu: VLLM::EngineCore
+   - dnguy154: /mnt/shared/bach/miniconda3/envs/vllm/bin/python3.10 -c from multiprocessing.spa
+
+GPU 2: [0;31mBUSY[0m (Util: 0%, Mem: 138210/143771 MiB, 96%)
+   Users:
+   - knguy139: VLLM::EngineCore
+
+GPU 3: [0;31mBUSY[0m (Util: 0%, Mem: 134398/143771 MiB, 93%)
+   Users:
+   - shijielu: VLLM::EngineCore
+
+GPU 4: [0;31mBUSY[0m (Util: 57%, Mem: 122813/143771 MiB, 85%)
+   Users:
+   - dnguy154: VLLM::EngineCore
+   - dnguy154: VLLM::EngineCore
+   - dnguy154: /mnt/shared/bach/miniconda3/envs/eval/bin/python3.12 -c from multiprocessing.spa
+
+GPU 5: [0;31mBUSY[0m (Util: 100%, Mem: 37696/143771 MiB, 26%)
+   Users:
+   - mvyas7: python colbert_pruner_wikitab_dpr.py
+
+GPU 6: [0;32mFREE[0m (Util: 0%, Mem: 17/143771 MiB, 0%)
+
+GPU 7: [0;32mFREE[0m (Util: 0%, Mem: 17/143771 MiB, 0%)
+

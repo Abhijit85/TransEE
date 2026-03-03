@@ -1,0 +1,10 @@
+torch
+python-dotenv
+pandas
+numpy
+scipy
+scikit-learn
+transformers==4.39.3
+sentencepiece==0.2.0
+pyarrow==15.0.2
+nltk
